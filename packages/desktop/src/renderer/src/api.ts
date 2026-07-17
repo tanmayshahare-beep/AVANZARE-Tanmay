@@ -1,7 +1,10 @@
 import type {
-  ApplicationRow, ConnectionTestResult, EmailSendReport, LlmSettings,
+  ApplicationRow, AuditEntry, CandidateHistoryEntry, ConnectionTestResult, EmailSendReport,
+  EmailTemplates, JobMetrics, LlmSettings,
   ScreeningInput, ScreeningProgress, ScreeningResult, SettingsProfile, Tier,
 } from '@avanzare/engine';
+
+export type { CandidateHistoryEntry, AuditEntry, JobMetrics, EmailTemplates };
 
 export type Envelope<T> =
   | { ok: true; data: T }
@@ -15,6 +18,8 @@ export interface CandidateRecord {
   lastCvPath: string | null;
   firstSeen: string;
   lastSeen: string;
+  notes: string;
+  applicationCount: number;
 }
 
 export interface EmailBatchReport { kind: 'rejection' | 'acceptance'; report: EmailSendReport }
@@ -31,10 +36,13 @@ interface AvzApi {
   setTier(ids: number[], tier: Tier): Promise<Envelope<void>>;
   analyze(payload: { jobId: number; applicationIds: number[]; profile: SettingsProfile }):
     Promise<Envelope<{ rows: ApplicationRow[]; failures: { applicationId: number; code: string; message: string }[] }>>;
-  sendEmails(payload: { jobId: number; profile: SettingsProfile; batches: { kind: 'rejection' | 'acceptance'; applicationIds: number[] }[] }):
-    Promise<Envelope<EmailBatchReport[]>>;
+  sendEmails(payload: {
+    jobId: number; profile: SettingsProfile;
+    batches: { kind: 'rejection' | 'acceptance'; applicationIds: number[] }[];
+    templatesOverride?: EmailTemplates;
+  }): Promise<Envelope<EmailBatchReport[]>>;
   exportTable(payload: {
-    kind: 'applications' | 'results' | 'candidates';
+    kind: 'applications' | 'results' | 'candidates' | 'audit';
     applicationIds?: number[];
     decisions?: [number, string][];
     suggestedName: string;
@@ -47,7 +55,15 @@ interface AvzApi {
   candidates: {
     list(): Promise<Envelope<CandidateRecord[]>>;
     purge(id: number): Promise<Envelope<void>>;
+    addNote(payload: { candidateIds: number[]; note: string }): Promise<Envelope<void>>;
+    history(id: number): Promise<Envelope<CandidateHistoryEntry[]>>;
   };
+  updateContact(payload: { candidateId: number; name: string; email: string | null; phone: string | null }): Promise<Envelope<void>>;
+  cvText(applicationId: number): Promise<Envelope<string>>;
+  jobs(): Promise<Envelope<{ id: number; title: string; createdAt: string }[]>>;
+  jobMetrics(jobId: number): Promise<Envelope<JobMetrics>>;
+  jobApplications(jobId: number): Promise<Envelope<ApplicationRow[]>>;
+  auditList(limit?: number): Promise<Envelope<AuditEntry[]>>;
   openFile(path: string): Promise<Envelope<void>>;
   pickFolder(): Promise<Envelope<string | null>>;
   onProgress(cb: (p: ScreeningProgress) => void): () => void;

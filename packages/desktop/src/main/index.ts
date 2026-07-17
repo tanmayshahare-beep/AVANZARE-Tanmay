@@ -3,10 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   AppError, Database, Logger, ProfileStore,
-  exportApplications, exportCandidates,
+  exportApplications, exportAudit, exportCandidates,
   listModels, runLlmAnalysis, runScreening,
   sendDecisionEmails, testConnections,
-  type EmailKind, type ScreeningInput, type SettingsProfile, type Tier,
+  type EmailKind, type EmailTemplates, type ScreeningInput, type SettingsProfile, type Tier,
 } from '@avanzare/engine';
 
 let win: BrowserWindow | null = null;
@@ -84,18 +84,39 @@ function registerIpc(): void {
   handle('emails:send', async (payload: {
     jobId: number; profile: SettingsProfile;
     batches: { kind: EmailKind; applicationIds: number[] }[];
+    /** Per-send template tweaks from the preview modal; falls back to the profile. */
+    templatesOverride?: EmailTemplates;
   }) => {
     const job = db.getJob(payload.jobId);
+    const templates = payload.templatesOverride ?? payload.profile.templates;
     const reports = [];
     for (const batch of payload.batches) {
       const apps = db.getApplications(batch.applicationIds);
       reports.push({
         kind: batch.kind,
-        report: await sendDecisionEmails(payload.profile.smtp, payload.profile.templates, job.title, apps, batch.kind, db),
+        report: await sendDecisionEmails(payload.profile.smtp, templates, job.title, apps, batch.kind, db),
       });
     }
     return reports;
   });
+
+  handle('contacts:update', (payload: { candidateId: number; name: string; email: string | null; phone: string | null }) => {
+    db.updateCandidateContact(payload.candidateId, payload.name, payload.email, payload.phone);
+  });
+
+  handle('candidates:addNote', (payload: { candidateIds: number[]; note: string }) => {
+    db.appendNote(payload.candidateIds, payload.note);
+  });
+
+  handle('candidates:history', (candidateId: number) => db.candidateHistory(candidateId));
+
+  handle('applications:cvText', (applicationId: number) => db.getCvText(applicationId));
+
+  handle('jobs:list', () => db.listJobs());
+  handle('jobs:metrics', (jobId: number) => db.jobMetrics(jobId));
+  handle('jobs:applications', (jobId: number) => db.listApplications(jobId));
+
+  handle('audit:list', (limit?: number) => db.listAudit(limit ?? 500));
 
   // The most recent screening, straight from the database — survives tab switches and app restarts.
   handle('job:last', () => {
@@ -105,7 +126,7 @@ function registerIpc(): void {
   });
 
   handle('export:table', async (payload: {
-    kind: 'applications' | 'results' | 'candidates';
+    kind: 'applications' | 'results' | 'candidates' | 'audit';
     applicationIds?: number[];
     decisions?: [number, string][];
     suggestedName: string;
@@ -126,6 +147,8 @@ function registerIpc(): void {
     if (canceled || !filePath) return { saved: false as const };
     if (payload.kind === 'candidates') {
       await exportCandidates(db.listCandidates(), filePath);
+    } else if (payload.kind === 'audit') {
+      await exportAudit(db.listAudit(100_000), filePath);
     } else {
       const rows = db.getApplications(payload.applicationIds ?? []);
       if (payload.kind === 'results') rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));

@@ -73,6 +73,47 @@ export interface ApplicationRow {
   status: ApplicationStatus;
   score: number | null;
   reasoning: string | null;
+  /** Internal recruiter notes stored on the candidate. */
+  notes: string | null;
+  /** How many other jobs this candidate has applied to (cross-job history). */
+  priorCount: number;
+}
+
+export interface CandidateHistoryEntry {
+  applicationId: number;
+  jobId: number;
+  jobTitle: string;
+  jobDate: string;
+  tier: Tier;
+  status: ApplicationStatus;
+  score: number | null;
+}
+
+export interface AuditEntry {
+  id: number;
+  time: string;
+  actor: string;
+  action: string;
+  candidateId: number | null;
+  applicationId: number | null;
+  detail: string;
+}
+
+export interface JobMetrics {
+  job: { id: number; title: string; createdAt: string };
+  funnel: {
+    applied: number;
+    keywordRejected: number;
+    rescued: number;
+    analyzed: number;
+    accepted: number;
+    rejectedFinal: number;
+    pending: number;
+  };
+  /** For each mandatory keyword: how many keyword-stage rejects were missing it. */
+  mandatoryImpact: { keyword: string; missingCount: number }[];
+  /** For each optional keyword: average LLM score of analyzed CVs with vs without it. */
+  optionalCorrelation: { keyword: string; withCount: number; withAvg: number | null; withoutAvg: number | null }[];
 }
 
 export interface ParseFailure {

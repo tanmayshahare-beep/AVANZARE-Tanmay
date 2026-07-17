@@ -8,7 +8,7 @@ export { matchKeywords, parseKeywordList } from './pipeline/keywords';
 export { runScreening, scanSource } from './pipeline/screening';
 export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/ollama';
 export { sendDecisionEmails, testSmtpConnection, type EmailKind } from './mail/mailer';
-export { exportApplications, exportCandidates } from './export/xlsx';
+export { exportApplications, exportCandidates, exportAudit } from './export/xlsx';
 export { Logger, defaultLogger } from './util/logger';
 
 import { AppError } from './errors';

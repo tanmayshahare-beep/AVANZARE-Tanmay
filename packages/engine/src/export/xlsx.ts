@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { asAppError } from '../errors';
 import type { CandidateRecord } from '../db/database';
-import type { ApplicationRow } from '../types';
+import type { ApplicationRow, AuditEntry } from '../types';
 
 function cvLinkCell(cvPath: string) {
   return { text: cvPath, hyperlink: `file:///${cvPath.replace(/\\/g, '/')}` };
@@ -62,6 +62,25 @@ export async function exportApplications(
   await save(wb, outPath);
 }
 
+/** Export the audit trail (GDPR/EEOC discovery). */
+export async function exportAudit(rows: AuditEntry[], outPath: string): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Audit log');
+  ws.columns = [
+    { header: 'Time', key: 'time', width: 24 },
+    { header: 'Actor', key: 'actor', width: 18 },
+    { header: 'Action', key: 'action', width: 20 },
+    { header: 'Candidate ID', key: 'cid', width: 12 },
+    { header: 'Application ID', key: 'aid', width: 14 },
+    { header: 'Detail', key: 'detail', width: 100 },
+  ];
+  for (const r of rows) {
+    ws.addRow({ time: r.time, actor: r.actor, action: r.action, cid: r.candidateId ?? '', aid: r.applicationId ?? '', detail: r.detail });
+  }
+  styleHeader(ws);
+  await save(wb, outPath);
+}
+
 /** Export the persistent candidates database. */
 export async function exportCandidates(rows: CandidateRecord[], outPath: string): Promise<void> {
   const wb = new ExcelJS.Workbook();
@@ -72,6 +91,8 @@ export async function exportCandidates(rows: CandidateRecord[], outPath: string)
     { header: 'Phone', key: 'phone', width: 18 },
     { header: 'First seen', key: 'first', width: 22 },
     { header: 'Last seen', key: 'last', width: 22 },
+    { header: 'Applications', key: 'apps', width: 12 },
+    { header: 'Notes', key: 'notes', width: 60 },
     { header: 'Last CV', key: 'cv', width: 60 },
   ];
   for (const c of rows) {
@@ -81,6 +102,8 @@ export async function exportCandidates(rows: CandidateRecord[], outPath: string)
       phone: c.phone ?? '',
       first: c.firstSeen,
       last: c.lastSeen,
+      apps: c.applicationCount,
+      notes: c.notes,
       cv: c.lastCvPath ? cvLinkCell(c.lastCvPath) : '',
     });
   }

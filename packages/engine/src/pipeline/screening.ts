@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { AppError } from '../errors';
@@ -53,8 +54,11 @@ export async function runScreening(
       const allMandatory = matchedMandatory.length === input.mandatoryKeywords.length;
       const tier: Tier = !allMandatory ? 'rejected' : matchedOptional.length > 0 ? 'optional' : 'mandatory';
 
+      // Hash of the exact CV bytes screened — the audit trail can prove which
+      // version of a resume every decision and email was based on.
+      const cvHash = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
       const candidateId = db.upsertCandidate(contact.name, contact.email, contact.phone, file);
-      db.insertApplication(jobId, candidateId, file, text, tier, matchedMandatory, matchedOptional);
+      db.insertApplication(jobId, candidateId, file, text, cvHash, tier, matchedMandatory, matchedOptional);
     } catch (err) {
       const appErr = err instanceof AppError ? err : new AppError('AVZ-APP-901', file, String(err));
       failures.push({ file, code: appErr.code, message: appErr.message });
@@ -63,6 +67,9 @@ export async function runScreening(
       onProgress?.({ phase: 'parsing', done, total: files.length, currentFile: path.basename(file) });
     }
   });
+
+  db.audit('screening_run',
+    `job "${input.jobTitle}" (id ${jobId}): ${files.length} file(s) from ${input.sourcePath}, ${failures.length} unparseable`);
 
   return {
     jobId,

@@ -62,6 +62,7 @@ export async function sendDecisionEmails(
       continue;
     }
     const vars = { name: app.name, job_title: jobTitle };
+    const cv = db.getCvInfo(app.id);
     try {
       await transport.sendMail({
         from: smtp.fromName ? `"${smtp.fromName}" <${smtp.fromAddress}>` : smtp.fromAddress,
@@ -72,10 +73,14 @@ export async function sendDecisionEmails(
       report.sent += 1;
       db.logEmail(app.id, kind, app.email, 'sent');
       db.setApplicationStatus(app.id, finalStatus);
+      db.audit('email_sent',
+        `${kind} to ${app.email} for job "${jobTitle}" (CV ${cv.path}, sha256 ${cv.hash.slice(0, 16)}…)`,
+        app.candidateId, app.id);
     } catch (err) {
       const appErr = asAppError(err, 'AVZ-MAIL-303', app.email);
       report.failed.push({ applicationId: app.id, name: app.name, code: appErr.code, message: appErr.message });
       db.logEmail(app.id, kind, app.email, 'failed', appErr.code);
+      db.audit('email_failed', `${kind} to ${app.email}: ${appErr.code}`, app.candidateId, app.id);
     }
   }
 

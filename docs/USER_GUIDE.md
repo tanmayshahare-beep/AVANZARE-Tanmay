@@ -66,10 +66,29 @@ PDF/Word file. A select-all checkbox sits in the header.
   sent to the LLM analysis together with the accepted CVs (tagged "rescued").
 - Applicants whose CV contained no email address show a **"no email found"** badge —
   they can still be marked rejected, but no mail is sent (logged as `AVZ-MAIL-304`).
-- **Send rejection emails to selected (N) & continue** asks for confirmation, sends,
-  and shows a sent/failed/no-email report. **Continue without sending** skips the
-  emails but still records the decisions.
 - Files that could not be parsed at all are listed underneath with their error codes.
+
+Working inside the table:
+
+- **Click a name** to open the in-app CV previewer: a side panel with the parsed
+  text of the resume, plus a button for the original PDF/Word file — review CVs and
+  manage checkboxes without switching windows.
+- **✎ next to a name** edits the contact info inline. Extraction is heuristic, so a
+  wrong name or missing email can be fixed in place instead of re-uploading; every
+  edit is recorded in the audit trail.
+- **"↺ applied to N other jobs"** expands the candidate's cross-job history: past
+  applications with dates, outcomes and LLM scores — so nobody re-shortlists a
+  candidate rejected last month, or overlooks a proven strong applicant. Stored
+  internal notes appear beneath.
+- **Add note to selected** stores one internal note on every selected candidate
+  (e.g. "passed mandatory but lacked leadership — keep for junior roles").
+
+Sending is a two-step safety flow: **Send rejection emails to selected (N)…** opens
+a preview modal showing the rendered emails for the first recipients; subject and
+body can be tweaked *for this send only*. After **Approve & send**, a **30-second
+countdown** runs with a Cancel button (and "Send now" to skip the wait) before
+anything actually leaves. **Continue without sending** records decisions with no
+emails.
 
 ## 4. LLM analysis and results
 
@@ -82,30 +101,54 @@ reliable even with small local models.
 - **All rows start unchecked.** Check the candidates you want to advance.
 - **Send emails (N acceptances, M rejections)** — checked candidates receive the
   acceptance template, unchecked the rejection template. Because *everyone* in the
-  table is emailed, a confirmation dialog restates both counts before sending.
+  table is emailed, the send goes through the same preview modal (both templates
+  editable per send, first recipients rendered) and the 30-second undo countdown.
 - A full send report (sent / failed with error codes / no email) is shown after.
+- The in-app CV previewer, inline contact editing, cross-job history and bulk
+  notes work here exactly as on the rejection screen.
 
-## 5. Results tab
+## 5. Results tab & job performance dashboard
 
-The **Results** tab always shows the most recent screening, read directly from the
-local database — switching tabs mid-run, or even closing and reopening the app,
-never loses it. It lists every application with its tier, LLM score and reasoning,
-decision status, and a link to the CV, and can be exported to Excel at any time.
+The **Results** tab shows any past screening (most recent by default — pick any run
+from the dropdown), read directly from the local database: switching tabs mid-run,
+or even closing and reopening the app, never loses it.
 
-## 6. Candidate database
+Above the applications table sits the **job performance dashboard**:
 
-The **Candidates** tab lists every applicant ever parsed, with first/last-seen dates
-and their most recent CV. This is personal data stored on the machine — the
-**Delete** button on each row permanently removes a candidate and all their
-application history (use it for GDPR/data-deletion requests).
+- **Hiring funnel** — applied → rejected at keyword stage (with rescues) →
+  analyzed by LLM → accepted / rejected totals.
+- **Mandatory keyword impact** — how many keyword-stage rejects were missing each
+  mandatory keyword. A keyword that rejects nearly everyone may be phrased too
+  narrowly ("Amazon Web Services" vs "AWS").
+- **Optional keywords vs LLM score** — average score of analyzed CVs with vs
+  without each optional keyword; keywords that clearly correlate with high scores
+  are candidates for promotion to mandatory in the next round.
 
-## 6. Exporting
+## 6. Audit trail
 
-Every table — rejection review, LLM results, candidate database — has an
-**Export to Excel** button producing an `.xlsx` including the current checkbox
-decisions, tiers, scores, full reasoning text, and clickable links to the CV files.
+The **Audit** tab records every consequential action with a timestamp and the OS
+user who performed it: screening runs, every email sent (including which CV file
+and SHA-256 content hash the decision was based on), contact edits, notes, tier
+changes (rescues), and candidate purges. The Excel export contains the complete
+history — built for GDPR/EEOC discovery requests.
 
-## 7. Where data lives
+## 7. Candidate database
+
+The **Candidates** tab lists every applicant ever parsed, with first/last-seen dates,
+their internal notes, expandable application history, and their most recent CV.
+Contact info is editable inline, and notes can be added in bulk to selected
+candidates. This is personal data stored on the machine — the **Delete** button on
+each row permanently removes a candidate and all their application history (use it
+for GDPR/data-deletion requests; the purge itself is recorded in the audit trail).
+
+## 8. Exporting
+
+Every table — rejection review, LLM results, candidate database, audit trail — has
+an **Export to Excel** button producing an `.xlsx` including the current checkbox
+decisions, tiers, scores, full reasoning text, notes, and clickable links to the CV
+files.
+
+## 9. Where data lives
 
 Everything is stored locally under your user profile
 (`%APPDATA%/avanzare-desktop/` — exact path shown in the log on startup):

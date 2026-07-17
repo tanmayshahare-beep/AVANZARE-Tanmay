@@ -8,8 +8,9 @@ import Rejection from './views/Rejection';
 import Results from './views/Results';
 import LastResults from './views/LastResults';
 import Candidates from './views/Candidates';
+import Audit from './views/Audit';
 
-type Tab = 'screening' | 'results' | 'candidates' | 'settings';
+type Tab = 'screening' | 'results' | 'candidates' | 'audit' | 'settings';
 type WizardStep = 'job' | 'running' | 'rejection' | 'analyzing' | 'results';
 
 export interface Toast { text: string; kind: 'error' | 'info' }
@@ -111,6 +112,8 @@ export default function App() {
           onClick={() => setTab('results')}>Results</button>
         <button className={`tab ${tab === 'candidates' ? 'active' : ''}`} disabled={!profile}
           onClick={() => setTab('candidates')}>Candidates</button>
+        <button className={`tab ${tab === 'audit' ? 'active' : ''}`}
+          onClick={() => setTab('audit')}>Audit</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`}
           onClick={() => setTab('settings')}>Technical Settings</button>
         <span className="spacer" />
@@ -141,6 +144,7 @@ export default function App() {
 
         {tab === 'results' && <LastResults exportDir={profile?.exportDir} notify={notify} />}
         {tab === 'candidates' && <Candidates exportDir={profile?.exportDir} notify={notify} />}
+        {tab === 'audit' && <Audit exportDir={profile?.exportDir} notify={notify} />}
       </div></div>
 
       {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}

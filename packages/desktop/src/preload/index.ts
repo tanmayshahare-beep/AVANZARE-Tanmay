@@ -19,7 +19,15 @@ contextBridge.exposeInMainWorld('avz', {
   candidates: {
     list: () => invoke('candidates:list'),
     purge: (id: number) => invoke('candidates:purge', id),
+    addNote: (payload: unknown) => invoke('candidates:addNote', payload),
+    history: (id: number) => invoke('candidates:history', id),
   },
+  updateContact: (payload: unknown) => invoke('contacts:update', payload),
+  cvText: (applicationId: number) => invoke('applications:cvText', applicationId),
+  jobs: () => invoke('jobs:list'),
+  jobMetrics: (jobId: number) => invoke('jobs:metrics', jobId),
+  jobApplications: (jobId: number) => invoke('jobs:applications', jobId),
+  auditList: (limit?: number) => invoke('audit:list', limit),
   openFile: (path: string) => invoke('file:open', path),
   pickFolder: () => invoke('dialog:pickFolder'),
   onProgress: (cb: (p: unknown) => void) => {

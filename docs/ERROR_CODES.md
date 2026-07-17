@@ -19,7 +19,7 @@ must be kept in sync with it.
 | AVZ-PARSE-105 | Document parsed but contained no text | Empty or image-only document | Same as 103 |
 | AVZ-PARSE-106 | Word document could not be parsed | Corrupt or password-protected file | Remove protection / re-export |
 
-## LLM 2xx — Ollama analysis
+## LLM 2xx Ollama analysis
 
 | Code | Meaning | Typical cause | Remedy |
 |---|---|---|---|
