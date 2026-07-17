@@ -6,6 +6,7 @@ import HistoryCell from '../components/HistoryCell';
 import CvDrawer, { type CvDrawerTarget } from '../components/CvDrawer';
 import NoteDialog from '../components/NoteDialog';
 import EmailPreviewModal from '../components/EmailPreviewModal';
+import CriteriaBadges from '../components/CriteriaBadges';
 
 interface Props {
   rows: ApplicationRow[];
@@ -115,6 +116,7 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
               <th>History &amp; notes</th>
               <th>Tier</th>
               <th>Score /10</th>
+              <th>Requirements</th>
               <th>Reasoning</th>
               <th>CV</th>
             </tr>
@@ -142,6 +144,7 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
                   </td>
                   <td><span className={`badge ${tier.cls}`}>{tier.text}</span></td>
                   <td><span className="score">{r.score !== null ? r.score.toFixed(1) : '—'}</span></td>
+                  <td><CriteriaBadges verdict={r.criteria} /></td>
                   <td className="reasoning">
                     <span className="preview" onClick={() => toggleExpand(r.id)} title="Click to expand/collapse">
                       {isOpen || reasoning.length <= 90 ? reasoning : reasoning.slice(0, 90) + '… ▸'}
@@ -155,7 +158,7 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
                 </tr>
               );
             })}
-            {rows.length === 0 && <tr><td colSpan={7} className="muted">No candidates reached the analysis stage.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8} className="muted">No candidates reached the analysis stage.</td></tr>}
           </tbody>
         </table>
       </div>

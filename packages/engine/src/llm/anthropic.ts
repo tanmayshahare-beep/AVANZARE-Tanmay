@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AppError } from '../errors';
-import type { LlmSettings } from '../types';
+import type { CriteriaVerdict, JobCriteria, LlmSettings } from '../types';
+import { CRITERIA_SCHEMA_PROPERTIES, criteriaPrompt, evaluateCriteria, type RawCriteriaFields } from './criteria';
 
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-8';
 
@@ -62,8 +63,9 @@ const VERDICT_SCHEMA = {
   properties: {
     score: { type: 'number' as const },
     reasoning: { type: 'string' as const },
+    ...CRITERIA_SCHEMA_PROPERTIES,
   },
-  required: ['score', 'reasoning'],
+  required: ['score', 'reasoning', 'certifications_met', 'experience_years', 'publications_match'],
   additionalProperties: false as const,
 };
 
@@ -79,11 +81,12 @@ export async function anthropicScoreCv(
   jobTitle: string,
   jobPrompt: string,
   cvText: string,
-): Promise<{ score: number; reasoning: string }> {
+  criteria: JobCriteria,
+): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null }> {
   const client = makeClient(settings);
   const model = settings.model || DEFAULT_ANTHROPIC_MODEL;
   const cv = cvText.length > MAX_CV_CHARS ? cvText.slice(0, MAX_CV_CHARS) + '\n[...CV truncated...]' : cvText;
-  const userContent = `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}\n\nCANDIDATE CV:\n${cv}`;
+  const userContent = `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}${criteriaPrompt(criteria)}\n\nCANDIDATE CV:\n${cv}`;
 
   let response: Anthropic.Message;
   try {
@@ -123,9 +126,13 @@ export async function anthropicScoreCv(
   try {
     // Structured outputs return pure JSON; the fallback path may wrap it in prose.
     const jsonText = text.trim().startsWith('{') ? text : (text.match(/\{[\s\S]*\}/)?.[0] ?? text);
-    const parsed = JSON.parse(jsonText) as { score: number; reasoning: string };
+    const parsed = JSON.parse(jsonText) as { score: number; reasoning: string } & RawCriteriaFields;
     if (typeof parsed.score !== 'number' || typeof parsed.reasoning !== 'string') throw new Error('missing fields');
-    return { score: Math.max(0, Math.min(10, parsed.score)), reasoning: parsed.reasoning.trim() };
+    return {
+      score: Math.max(0, Math.min(10, parsed.score)),
+      reasoning: parsed.reasoning.trim(),
+      criteria: evaluateCriteria(criteria, parsed),
+    };
   } catch (err) {
     throw new AppError('AVZ-LLM-203', model, `raw response: ${text.slice(0, 300)}`, err);
   }

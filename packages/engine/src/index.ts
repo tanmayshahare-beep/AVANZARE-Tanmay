@@ -8,6 +8,7 @@ export { matchKeywords, parseKeywordList } from './pipeline/keywords';
 export { runScreening, scanSource } from './pipeline/screening';
 export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/router';
 export { DEFAULT_ANTHROPIC_MODEL } from './llm/anthropic';
+export { evaluateCriteria, criteriaPrompt } from './llm/criteria';
 export { sendDecisionEmails, testSmtpConnection, type EmailKind } from './mail/mailer';
 export { exportApplications, exportCandidates, exportAudit } from './export/xlsx';
 export { Logger, defaultLogger } from './util/logger';

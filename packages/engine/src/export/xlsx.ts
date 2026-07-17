@@ -36,6 +36,9 @@ export async function exportApplications(
     { header: 'Tier', key: 'tier', width: 14 },
     ...(withScores ? [
       { header: 'Score /10', key: 'score', width: 10 },
+      { header: 'Certifications', key: 'certs', width: 14 },
+      { header: 'Experience', key: 'exp', width: 14 },
+      { header: 'Publications', key: 'pubs', width: 14 },
       { header: 'Reasoning', key: 'reasoning', width: 80 },
     ] : [
       { header: 'Keyword score /5', key: 'kwscore', width: 14 },
@@ -45,6 +48,7 @@ export async function exportApplications(
     { header: 'Decision', key: 'decision', width: 22 },
     { header: 'CV', key: 'cv', width: 60 },
   ];
+  const mark = (v: boolean | null) => v === null ? '' : v ? 'yes' : 'no';
   for (const r of rows) {
     ws.addRow({
       name: r.name,
@@ -52,6 +56,11 @@ export async function exportApplications(
       phone: r.phone ?? '',
       tier: r.tier,
       score: r.score ?? '',
+      certs: mark(r.criteria?.certificationsMet ?? null),
+      exp: r.criteria?.experienceInRange !== null && r.criteria?.experienceInRange !== undefined
+        ? `${r.criteria.experienceYears ?? '?'}y — ${r.criteria.experienceInRange ? 'in range' : 'out of range'}`
+        : '',
+      pubs: mark(r.criteria?.publicationsMatch ?? null),
       reasoning: r.reasoning ?? '',
       kwscore: r.keywordScore !== null ? Math.round(r.keywordScore * 10) / 10 : '',
       mm: r.matchedMandatory.join(', '),

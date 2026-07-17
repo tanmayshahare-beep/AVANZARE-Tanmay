@@ -58,6 +58,19 @@ The SMTP password is encrypted at rest using Windows credential protection
 - **Additional keywords** — nice-to-haves. CVs that have all mandatory keywords plus
   at least one of these are tagged **mandatory + optional**; the rest of the accepted
   CVs are tagged **mandatory only**.
+- **Requirement tags** (optional, all three) — structured requirements assessed by
+  the LLM rather than string matching, because "5–8 years of experience" and
+  "publications in NLP" can't be judged by keyword search:
+  - **Certifications** — exact certification names, comma-separated; *all* are
+    required (e.g. `AWS Certified Solutions Architect, PMP`).
+  - **Experience range** — minimum and/or maximum years of relevant experience;
+    either side can be left open.
+  - **Research publications** — the specific field the applicant must have
+    publications in (e.g. `machine learning`).
+
+  Each analyzed candidate gets a ✓/✗ verdict per tag (plus the LLM's estimate of
+  their years of experience) in a **Requirements** column on the results table and
+  in the Excel export, and the tags are weighed into the affinity score.
 - **Job description for the LLM** — describe the role in detail: responsibilities,
   must-have experience, seniority, team context. The app nudges you if the
   description is very short, because ranking quality depends directly on it.
@@ -108,9 +121,10 @@ emails.
 
 Accepted CVs (both tiers) and rescued CVs are scored by the LLM against your job
 description. The results table is sorted by **affinity score (0–10)** and shows each
-candidate's tier, contact info, CV link, and the LLM's reasoning paragraph (click to
-expand). Scores and reasoning come from the model as structured JSON, so they are
-reliable even with small local models.
+candidate's tier, contact info, CV link, ✓/✗ verdicts for any requirement tags you
+set (certifications / experience range / publications), and the LLM's reasoning
+paragraph (click to expand). Scores, verdicts and reasoning come from the model as
+structured JSON, so they are reliable even with small local models.
 
 - **All rows start unchecked.** Check the candidates you want to advance.
 - **Send emails (N acceptances, M rejections)** — checked candidates receive the

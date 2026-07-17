@@ -4,8 +4,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { asAppError } from '../errors';
 import type {
-  ApplicationRow, ApplicationStatus, AuditEntry, CandidateHistoryEntry, JobMetrics, Tier, WeightedKeyword,
+  ApplicationRow, ApplicationStatus, AuditEntry, CandidateHistoryEntry, CriteriaVerdict,
+  JobCriteria, JobMetrics, Tier, WeightedKeyword,
 } from '../types';
+import { EMPTY_CRITERIA } from '../types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS candidates (
@@ -64,6 +66,8 @@ const MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: 'candidates', column: 'notes', ddl: "notes TEXT NOT NULL DEFAULT ''" },
   { table: 'applications', column: 'cv_hash', ddl: "cv_hash TEXT NOT NULL DEFAULT ''" },
   { table: 'applications', column: 'keyword_score', ddl: 'keyword_score REAL' },
+  { table: 'jobs', column: 'criteria', ddl: "criteria TEXT NOT NULL DEFAULT ''" },
+  { table: 'applications', column: 'criteria_json', ddl: 'criteria_json TEXT' },
 ];
 
 /** Jobs saved before weighted keywords stored plain strings — normalize to importance 3. */
@@ -246,10 +250,10 @@ export class Database {
 
   // ---- jobs & applications ----
 
-  createJob(title: string, prompt: string, mandatory: WeightedKeyword[], optional: string[]): number {
+  createJob(title: string, prompt: string, mandatory: WeightedKeyword[], optional: string[], criteria: JobCriteria): number {
     const res = this.db.prepare(
-      'INSERT INTO jobs (title, prompt, mandatory_keywords, optional_keywords, created_at) VALUES (?, ?, ?, ?, ?)',
-    ).run(title, prompt, JSON.stringify(mandatory), JSON.stringify(optional), new Date().toISOString());
+      'INSERT INTO jobs (title, prompt, mandatory_keywords, optional_keywords, criteria, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(title, prompt, JSON.stringify(mandatory), JSON.stringify(optional), JSON.stringify(criteria), new Date().toISOString());
     return Number(res.lastInsertRowid);
   }
 
@@ -262,15 +266,24 @@ export class Database {
     return this.listJobs()[0] ?? null;
   }
 
-  getJob(jobId: number): { id: number; title: string; prompt: string; mandatory: WeightedKeyword[]; optional: string[]; createdAt: string } {
+  getJob(jobId: number): {
+    id: number; title: string; prompt: string;
+    mandatory: WeightedKeyword[]; optional: string[]; criteria: JobCriteria; createdAt: string;
+  } {
     const r = this.db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as Record<string, unknown> | undefined;
     if (!r) throw asAppError(new Error(`job ${jobId} not found`), 'AVZ-DB-603', `getJob(${jobId})`);
+    let criteria: JobCriteria = { ...EMPTY_CRITERIA };
+    const rawCriteria = r.criteria as string | undefined;
+    if (rawCriteria) {
+      try { criteria = { ...EMPTY_CRITERIA, ...JSON.parse(rawCriteria) }; } catch { /* legacy/corrupt → empty */ }
+    }
     return {
       id: r.id as number,
       title: r.title as string,
       prompt: r.prompt as string,
       mandatory: normalizeMandatory(JSON.parse(r.mandatory_keywords as string)),
       optional: JSON.parse(r.optional_keywords as string),
+      criteria,
       createdAt: r.created_at as string,
     };
   }
@@ -312,6 +325,7 @@ export class Database {
       score: (r.score as number) ?? null,
       reasoning: (r.reasoning as string) ?? null,
       keywordScore: (r.keyword_score as number) ?? null,
+      criteria: r.criteria_json ? JSON.parse(r.criteria_json as string) as CriteriaVerdict : null,
       notes: ((r.notes as string) || null),
       priorCount: (r.prior_count as number) ?? 0,
     };
@@ -351,8 +365,9 @@ export class Database {
     this.audit('tier_change', `application ${applicationId} → ${tier}`, null, applicationId);
   }
 
-  setVerdict(applicationId: number, score: number, reasoning: string): void {
-    this.db.prepare('UPDATE applications SET score = ?, reasoning = ? WHERE id = ?').run(score, reasoning, applicationId);
+  setVerdict(applicationId: number, score: number, reasoning: string, criteria: CriteriaVerdict | null = null): void {
+    this.db.prepare('UPDATE applications SET score = ?, reasoning = ?, criteria_json = ? WHERE id = ?')
+      .run(score, reasoning, criteria ? JSON.stringify(criteria) : null, applicationId);
   }
 
   logEmail(applicationId: number | null, kind: string, recipient: string | null, status: string, errorCode?: string): void {

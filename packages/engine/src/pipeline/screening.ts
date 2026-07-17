@@ -48,7 +48,7 @@ export async function runScreening(
     keyword: k.keyword,
     importance: Math.max(1, Math.min(5, Math.round(k.importance) || 3)),
   }));
-  const jobId = db.createJob(input.jobTitle, input.prompt, mandatory, input.optionalKeywords);
+  const jobId = db.createJob(input.jobTitle, input.prompt, mandatory, input.optionalKeywords, input.criteria);
 
   await mapLimit(files, input.concurrency, async (file) => {
     try {

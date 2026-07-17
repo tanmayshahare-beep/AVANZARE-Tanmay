@@ -5,7 +5,7 @@
  */
 import { asAppError } from '../errors';
 import type { Database } from '../db/database';
-import type { LlmSettings, LlmVerdict, ScreeningProgress } from '../types';
+import type { CriteriaVerdict, JobCriteria, LlmSettings, LlmVerdict, ScreeningProgress } from '../types';
 import { mapLimit } from '../util/concurrency';
 import { ollamaListModels, ollamaScoreCv, ollamaTestConnection } from './ollama';
 import { anthropicListModels, anthropicScoreCv, anthropicTestConnection } from './anthropic';
@@ -23,10 +23,11 @@ export async function scoreCv(
   jobTitle: string,
   jobPrompt: string,
   cvText: string,
-): Promise<{ score: number; reasoning: string }> {
+  criteria: JobCriteria,
+): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null }> {
   return settings.provider === 'anthropic'
-    ? anthropicScoreCv(settings, jobTitle, jobPrompt, cvText)
-    : ollamaScoreCv(settings, jobTitle, jobPrompt, cvText);
+    ? anthropicScoreCv(settings, jobTitle, jobPrompt, cvText, criteria)
+    : ollamaScoreCv(settings, jobTitle, jobPrompt, cvText, criteria);
 }
 
 /**
@@ -49,8 +50,8 @@ export async function runLlmAnalysis(
   await mapLimit(applicationIds, Math.max(1, Math.min(concurrency, 2)), async (appId) => {
     try {
       const cvText = db.getCvText(appId);
-      const { score, reasoning } = await scoreCv(settings, job.title, job.prompt, cvText);
-      db.setVerdict(appId, score, reasoning);
+      const { score, reasoning, criteria } = await scoreCv(settings, job.title, job.prompt, cvText, job.criteria);
+      db.setVerdict(appId, score, reasoning, criteria);
       db.setApplicationStatus(appId, 'in_llm');
       verdicts.push({ applicationId: appId, score, reasoning });
     } catch (err) {

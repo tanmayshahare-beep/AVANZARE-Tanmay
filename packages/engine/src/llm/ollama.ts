@@ -1,11 +1,13 @@
 import { AppError } from '../errors';
-import type { LlmSettings } from '../types';
+import type { CriteriaVerdict, JobCriteria, LlmSettings } from '../types';
+import { CRITERIA_SCHEMA_PROPERTIES, criteriaPrompt, evaluateCriteria, type RawCriteriaFields } from './criteria';
 
 const VERDICT_SCHEMA = {
   type: 'object',
   properties: {
     score: { type: 'number', minimum: 0, maximum: 10 },
     reasoning: { type: 'string' },
+    ...CRITERIA_SCHEMA_PROPERTIES,
   },
   required: ['score', 'reasoning'],
 } as const;
@@ -54,7 +56,8 @@ export async function ollamaScoreCv(
   jobTitle: string,
   jobPrompt: string,
   cvText: string,
-): Promise<{ score: number; reasoning: string }> {
+  criteria: JobCriteria,
+): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null }> {
   const cv = cvText.length > MAX_CV_CHARS ? cvText.slice(0, MAX_CV_CHARS) + '\n[...CV truncated...]' : cvText;
   const data = await ollamaFetch(settings, '/api/chat', {
     model: settings.model,
@@ -71,16 +74,20 @@ export async function ollamaScoreCv(
       },
       {
         role: 'user',
-        content: `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}\n\nCANDIDATE CV:\n${cv}`,
+        content: `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}${criteriaPrompt(criteria)}\n\nCANDIDATE CV:\n${cv}`,
       },
     ],
   }) as { message?: { content?: string } };
 
   const content = data.message?.content ?? '';
   try {
-    const parsed = JSON.parse(content) as { score: number; reasoning: string };
+    const parsed = JSON.parse(content) as { score: number; reasoning: string } & RawCriteriaFields;
     if (typeof parsed.score !== 'number' || typeof parsed.reasoning !== 'string') throw new Error('missing fields');
-    return { score: Math.max(0, Math.min(10, parsed.score)), reasoning: parsed.reasoning.trim() };
+    return {
+      score: Math.max(0, Math.min(10, parsed.score)),
+      reasoning: parsed.reasoning.trim(),
+      criteria: evaluateCriteria(criteria, parsed),
+    };
   } catch (err) {
     throw new AppError('AVZ-LLM-203', settings.baseUrl, `raw response: ${content.slice(0, 300)}`, err);
   }

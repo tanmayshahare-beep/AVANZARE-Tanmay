@@ -71,6 +71,7 @@ export default function App() {
       prompt: def.prompt,
       mandatoryKeywords: def.mandatory,
       optionalKeywords: def.optional,
+      criteria: def.criteria,
       sourcePath: profile.source.path,
       concurrency: profile.concurrency,
     }), (m) => { notify(m); setWizard('job'); });

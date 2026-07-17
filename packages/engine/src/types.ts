@@ -60,6 +60,46 @@ export interface WeightedKeyword {
   importance: number;
 }
 
+/**
+ * Structured requirement tags the recruiter sets per job. Empty list / nulls /
+ * empty string mean "not required for this role". Unlike keywords these are
+ * judged by the LLM (experience and publication relevance aren't reliably
+ * decidable by string matching).
+ */
+export interface JobCriteria {
+  /** Exact certification names, all required (e.g. "AWS Certified Solutions Architect"). */
+  certifications: string[];
+  /** Required years of relevant experience; either bound may be null (open-ended). */
+  experienceMinYears: number | null;
+  experienceMaxYears: number | null;
+  /** Field the applicant must have research publications in (e.g. "machine learning"). */
+  publicationsField: string;
+}
+
+/** Per-requirement LLM verdicts; null field = that category wasn't required. */
+export interface CriteriaVerdict {
+  certificationsMet: boolean | null;
+  experienceYears: number | null;
+  experienceInRange: boolean | null;
+  publicationsMatch: boolean | null;
+}
+
+export const EMPTY_CRITERIA: JobCriteria = {
+  certifications: [],
+  experienceMinYears: null,
+  experienceMaxYears: null,
+  publicationsField: '',
+};
+
+export function criteriaActive(c: JobCriteria | null | undefined): boolean {
+  return !!c && (
+    c.certifications.length > 0 ||
+    c.experienceMinYears !== null ||
+    c.experienceMaxYears !== null ||
+    c.publicationsField.trim().length > 0
+  );
+}
+
 export type Tier = 'rejected' | 'mandatory' | 'optional' | 'rescued';
 
 export type ApplicationStatus =
@@ -89,6 +129,8 @@ export interface ApplicationRow {
    * keywords. Null on jobs screened before the feature existed.
    */
   keywordScore: number | null;
+  /** LLM verdicts on the job's requirement tags; null until analyzed or when none were set. */
+  criteria: CriteriaVerdict | null;
   /** Internal recruiter notes stored on the candidate. */
   notes: string | null;
   /** How many other jobs this candidate has applied to (cross-job history). */
@@ -143,6 +185,7 @@ export interface ScreeningInput {
   prompt: string;
   mandatoryKeywords: WeightedKeyword[];
   optionalKeywords: string[];
+  criteria: JobCriteria;
   sourcePath: string;
   concurrency: number;
 }

@@ -4,6 +4,7 @@ import { avz, call, type JobMetrics } from '../api';
 import ContactCell from '../components/ContactCell';
 import HistoryCell from '../components/HistoryCell';
 import CvDrawer, { type CvDrawerTarget } from '../components/CvDrawer';
+import CriteriaBadges from '../components/CriteriaBadges';
 
 interface Props {
   exportDir?: string;
@@ -172,7 +173,7 @@ export default function LastResults({ exportDir, notify }: Props) {
           <table>
             <thead>
               <tr>
-                <th>Name &amp; contact</th><th>History &amp; notes</th><th>Tier</th><th>Score /10</th><th>Reasoning</th><th>Status</th><th>CV</th>
+                <th>Name &amp; contact</th><th>History &amp; notes</th><th>Tier</th><th>Score /10</th><th>Requirements</th><th>Reasoning</th><th>Status</th><th>CV</th>
               </tr>
             </thead>
             <tbody>
@@ -197,6 +198,7 @@ export default function LastResults({ exportDir, notify }: Props) {
                     </td>
                     <td><span className={`badge ${tier.cls}`}>{tier.text}</span></td>
                     <td><span className="score">{r.score !== null ? r.score.toFixed(1) : '—'}</span></td>
+                    <td><CriteriaBadges verdict={r.criteria} /></td>
                     <td className="reasoning">
                       {reasoning && (
                         <span className="preview" onClick={() => toggleExpand(r.id)} title="Click to expand/collapse">
