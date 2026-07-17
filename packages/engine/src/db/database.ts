@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { asAppError } from '../errors';
 import type {
-  ApplicationRow, ApplicationStatus, AuditEntry, CandidateHistoryEntry, JobMetrics, Tier,
+  ApplicationRow, ApplicationStatus, AuditEntry, CandidateHistoryEntry, JobMetrics, Tier, WeightedKeyword,
 } from '../types';
 
 const SCHEMA = `
@@ -63,7 +63,17 @@ CREATE TABLE IF NOT EXISTS audit_log (
 const MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: 'candidates', column: 'notes', ddl: "notes TEXT NOT NULL DEFAULT ''" },
   { table: 'applications', column: 'cv_hash', ddl: "cv_hash TEXT NOT NULL DEFAULT ''" },
+  { table: 'applications', column: 'keyword_score', ddl: 'keyword_score REAL' },
 ];
+
+/** Jobs saved before weighted keywords stored plain strings — normalize to importance 3. */
+function normalizeMandatory(parsed: unknown[]): WeightedKeyword[] {
+  return parsed.map(k =>
+    typeof k === 'string'
+      ? { keyword: k, importance: 3 }
+      : k as WeightedKeyword,
+  );
+}
 
 export interface CandidateRecord {
   id: number;
@@ -236,7 +246,7 @@ export class Database {
 
   // ---- jobs & applications ----
 
-  createJob(title: string, prompt: string, mandatory: string[], optional: string[]): number {
+  createJob(title: string, prompt: string, mandatory: WeightedKeyword[], optional: string[]): number {
     const res = this.db.prepare(
       'INSERT INTO jobs (title, prompt, mandatory_keywords, optional_keywords, created_at) VALUES (?, ?, ?, ?, ?)',
     ).run(title, prompt, JSON.stringify(mandatory), JSON.stringify(optional), new Date().toISOString());
@@ -252,14 +262,14 @@ export class Database {
     return this.listJobs()[0] ?? null;
   }
 
-  getJob(jobId: number): { id: number; title: string; prompt: string; mandatory: string[]; optional: string[]; createdAt: string } {
+  getJob(jobId: number): { id: number; title: string; prompt: string; mandatory: WeightedKeyword[]; optional: string[]; createdAt: string } {
     const r = this.db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as Record<string, unknown> | undefined;
     if (!r) throw asAppError(new Error(`job ${jobId} not found`), 'AVZ-DB-603', `getJob(${jobId})`);
     return {
       id: r.id as number,
       title: r.title as string,
       prompt: r.prompt as string,
-      mandatory: JSON.parse(r.mandatory_keywords as string),
+      mandatory: normalizeMandatory(JSON.parse(r.mandatory_keywords as string)),
       optional: JSON.parse(r.optional_keywords as string),
       createdAt: r.created_at as string,
     };
@@ -267,16 +277,17 @@ export class Database {
 
   insertApplication(
     jobId: number, candidateId: number, cvPath: string, cvText: string, cvHash: string, tier: Tier,
-    matchedMandatory: string[], matchedOptional: string[],
+    matchedMandatory: string[], matchedOptional: string[], keywordScore: number,
   ): number {
     try {
       const res = this.db.prepare(
-        `INSERT INTO applications (job_id, candidate_id, cv_path, cv_text, cv_hash, tier, matched_mandatory, matched_optional)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO applications (job_id, candidate_id, cv_path, cv_text, cv_hash, tier, matched_mandatory, matched_optional, keyword_score)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(job_id, candidate_id) DO UPDATE SET
            cv_path = excluded.cv_path, cv_text = excluded.cv_text, cv_hash = excluded.cv_hash, tier = excluded.tier,
-           matched_mandatory = excluded.matched_mandatory, matched_optional = excluded.matched_optional`,
-      ).run(jobId, candidateId, cvPath, cvText, cvHash, tier, JSON.stringify(matchedMandatory), JSON.stringify(matchedOptional));
+           matched_mandatory = excluded.matched_mandatory, matched_optional = excluded.matched_optional,
+           keyword_score = excluded.keyword_score`,
+      ).run(jobId, candidateId, cvPath, cvText, cvHash, tier, JSON.stringify(matchedMandatory), JSON.stringify(matchedOptional), keywordScore);
       if (res.lastInsertRowid && res.changes === 1) return Number(res.lastInsertRowid);
       const row = this.db.prepare('SELECT id FROM applications WHERE job_id = ? AND candidate_id = ?').get(jobId, candidateId) as { id: number };
       return row.id;
@@ -300,6 +311,7 @@ export class Database {
       status: r.status as ApplicationStatus,
       score: (r.score as number) ?? null,
       reasoning: (r.reasoning as string) ?? null,
+      keywordScore: (r.keyword_score as number) ?? null,
       notes: ((r.notes as string) || null),
       priorCount: (r.prior_count as number) ?? 0,
     };
@@ -358,7 +370,7 @@ export class Database {
     const keywordRejects = apps.filter(a => a.tier === 'rejected' || a.tier === 'rescued');
     const analyzed = apps.filter(a => a.score !== null);
 
-    const mandatoryImpact = job.mandatory.map(keyword => ({
+    const mandatoryImpact = job.mandatory.map(({ keyword }) => ({
       keyword,
       missingCount: keywordRejects.filter(a => !a.matchedMandatory.includes(keyword)).length,
     })).sort((a, b) => b.missingCount - a.missingCount);

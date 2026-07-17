@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { SettingsProfile } from '@avanzare/engine';
+import type { SettingsProfile, WeightedKeyword } from '@avanzare/engine';
 
 export interface JobDef {
   title: string;
-  mandatory: string[];
+  mandatory: WeightedKeyword[];
   optional: string[];
   prompt: string;
 }
@@ -22,13 +22,18 @@ function parseKeywords(s: string): string[] {
 
 export default function Job({ profile, initial, onStart }: Props) {
   const [title, setTitle] = useState(initial?.title ?? '');
-  const [mandatory, setMandatory] = useState(initial?.mandatory.join(', ') ?? '');
+  const [mandatory, setMandatory] = useState(initial?.mandatory.map(k => k.keyword).join(', ') ?? '');
   const [optional, setOptional] = useState(initial?.optional.join(', ') ?? '');
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
+  // keyword → importance (1-5); keywords not in the map default to 3
+  const [importance, setImportance] = useState<Record<string, number>>(() =>
+    Object.fromEntries((initial?.mandatory ?? []).map(k => [k.keyword, k.importance])));
 
-  const mand = parseKeywords(mandatory);
+  const mandNames = parseKeywords(mandatory);
   const opt = parseKeywords(optional);
-  const ready = title.trim() && mand.length > 0 && prompt.trim().length > 0;
+  const ready = title.trim() && mandNames.length > 0 && prompt.trim().length > 0;
+
+  const weighted: WeightedKeyword[] = mandNames.map(k => ({ keyword: k, importance: importance[k] ?? 3 }));
 
   return (
     <div className="panel">
@@ -52,10 +57,27 @@ export default function Job({ profile, initial, onStart }: Props) {
             onChange={e => setOptional(e.target.value)} />
         </label>
       </div>
-      {mand.length > 0 && (
-        <p className="hint">Parsed: {mand.map(k => <span className="badge" key={k} style={{ marginRight: 4 }}>{k}</span>)}
-          {opt.length > 0 && <> + optional: {opt.map(k => <span className="badge ok" key={k} style={{ marginRight: 4 }}>{k}</span>)}</>}
-        </p>
+
+      {mandNames.length > 0 && (
+        <>
+          <p className="hint" style={{ marginBottom: 4 }}>
+            Set each keyword's <strong>importance (1–5)</strong>. On the rejection screen every applicant gets a
+            keyword score out of 5 — matched keywords earn their importance as marks — so you can spot near-misses worth rescuing.
+          </p>
+          <div className="btn-row" style={{ marginTop: 4 }}>
+            {mandNames.map(k => (
+              <span key={k} className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 8px' }}>
+                {k}
+                <select value={importance[k] ?? 3} style={{ width: 'auto', padding: '1px 4px', fontSize: 12 }}
+                  title={`Importance of "${k}" (1 = nice, 5 = critical)`}
+                  onChange={e => setImportance(prev => ({ ...prev, [k]: Number(e.target.value) }))}>
+                  {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </span>
+            ))}
+            {opt.length > 0 && <>optional: {opt.map(k => <span className="badge ok" key={k}>{k}</span>)}</>}
+          </div>
+        </>
       )}
 
       <label className="field" style={{ marginTop: 12 }}>
@@ -71,7 +93,8 @@ export default function Job({ profile, initial, onStart }: Props) {
       )}
 
       <div className="btn-row">
-        <button className="btn primary" disabled={!ready} onClick={() => onStart({ title: title.trim(), mandatory: mand, optional: opt, prompt: prompt.trim() })}>
+        <button className="btn primary" disabled={!ready}
+          onClick={() => onStart({ title: title.trim(), mandatory: weighted, optional: opt, prompt: prompt.trim() })}>
           Start parsing
         </button>
         {!ready && <span className="muted">Job title, at least one mandatory keyword and a description are required.</span>}

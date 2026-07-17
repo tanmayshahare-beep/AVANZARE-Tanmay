@@ -50,7 +50,11 @@ The SMTP password is encrypted at rest using Windows credential protection
 - **Job title** — used in emails and exports.
 - **Mandatory keywords** (comma-separated) — a CV that misses *any* of them is
   rejected. Matching is case-insensitive and word-aware: `java` will not match
-  `JavaScript`; symbols work (`C++`, `.NET`).
+  `JavaScript`; symbols work (`C++`, `.NET`). Each keyword gets an
+  **importance from 1 (nice) to 5 (critical)**, set on the chip that appears as
+  you type. Importance drives the *keyword score*: a matched keyword earns its
+  importance as marks, a missing one earns 0, and the score is the average
+  across all mandatory keywords — out of 5.
 - **Additional keywords** — nice-to-haves. CVs that have all mandatory keywords plus
   at least one of these are tagged **mandatory + optional**; the rest of the accepted
   CVs are tagged **mandatory only**.
@@ -65,8 +69,11 @@ and phone, and stores the contact info in the persistent candidate database
 ## 3. Rejection review
 
 The first thing you see after parsing is the table of applicants that failed the
-mandatory keywords: checkbox, name, contact info, and a link that opens the original
-PDF/Word file. A select-all checkbox sits in the header.
+mandatory keywords: checkbox, name, contact info, their **keyword score /5**, and a
+link that opens the original PDF/Word file. A select-all checkbox sits in the
+header. The table is sorted by keyword score, best first — an applicant at 3.8/5
+missed only low-importance keywords and is a prime rescue candidate, while 0.5/5
+means they matched almost nothing important.
 
 - **All rows start checked.** Checked = confirmed rejection.
 - **Uncheck** an applicant to *rescue* them: they skip the rejection email and are

@@ -54,6 +54,12 @@ export interface SettingsProfile {
   exportDir: string;
 }
 
+/** A mandatory keyword with its recruiter-assigned importance (1-5). */
+export interface WeightedKeyword {
+  keyword: string;
+  importance: number;
+}
+
 export type Tier = 'rejected' | 'mandatory' | 'optional' | 'rescued';
 
 export type ApplicationStatus =
@@ -77,6 +83,12 @@ export interface ApplicationRow {
   status: ApplicationStatus;
   score: number | null;
   reasoning: string | null;
+  /**
+   * Weighted mandatory-keyword score out of 5: each matched keyword earns its
+   * importance as marks (missing = 0); this is the average across all mandatory
+   * keywords. Null on jobs screened before the feature existed.
+   */
+  keywordScore: number | null;
   /** Internal recruiter notes stored on the candidate. */
   notes: string | null;
   /** How many other jobs this candidate has applied to (cross-job history). */
@@ -129,7 +141,7 @@ export interface ParseFailure {
 export interface ScreeningInput {
   jobTitle: string;
   prompt: string;
-  mandatoryKeywords: string[];
+  mandatoryKeywords: WeightedKeyword[];
   optionalKeywords: string[];
   sourcePath: string;
   concurrency: number;

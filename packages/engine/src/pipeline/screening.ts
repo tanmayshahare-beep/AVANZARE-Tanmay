@@ -39,26 +39,38 @@ export async function runScreening(
 ): Promise<ScreeningResult> {
   onProgress?.({ phase: 'scanning', done: 0, total: 0 });
   const files = scanSource(input.sourcePath);
-  const jobId = db.createJob(input.jobTitle, input.prompt, input.mandatoryKeywords, input.optionalKeywords);
 
   const failures: ParseFailure[] = [];
   let done = 0;
+
+  // Clamp recruiter-supplied importances to the documented 1-5 range.
+  const mandatory = input.mandatoryKeywords.map(k => ({
+    keyword: k.keyword,
+    importance: Math.max(1, Math.min(5, Math.round(k.importance) || 3)),
+  }));
+  const jobId = db.createJob(input.jobTitle, input.prompt, mandatory, input.optionalKeywords);
 
   await mapLimit(files, input.concurrency, async (file) => {
     try {
       const text = await extractText(file);
       const contact = extractContact(text, file);
-      const matchedMandatory = matchKeywords(text, input.mandatoryKeywords);
+      const matchedMandatory = matchKeywords(text, mandatory.map(k => k.keyword));
       const matchedOptional = matchKeywords(text, input.optionalKeywords);
 
-      const allMandatory = matchedMandatory.length === input.mandatoryKeywords.length;
+      const allMandatory = matchedMandatory.length === mandatory.length;
       const tier: Tier = !allMandatory ? 'rejected' : matchedOptional.length > 0 ? 'optional' : 'mandatory';
+
+      // Weighted keyword score /5: a matched keyword earns its importance as
+      // marks, a missing one earns 0; the score is the average across keywords.
+      const keywordScore = mandatory.length
+        ? mandatory.reduce((sum, k) => sum + (matchedMandatory.includes(k.keyword) ? k.importance : 0), 0) / mandatory.length
+        : 0;
 
       // Hash of the exact CV bytes screened — the audit trail can prove which
       // version of a resume every decision and email was based on.
       const cvHash = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
       const candidateId = db.upsertCandidate(contact.name, contact.email, contact.phone, file);
-      db.insertApplication(jobId, candidateId, file, text, cvHash, tier, matchedMandatory, matchedOptional);
+      db.insertApplication(jobId, candidateId, file, text, cvHash, tier, matchedMandatory, matchedOptional, keywordScore);
     } catch (err) {
       const appErr = err instanceof AppError ? err : new AppError('AVZ-APP-901', file, String(err));
       failures.push({ file, code: appErr.code, message: appErr.message });

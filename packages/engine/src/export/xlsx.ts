@@ -38,6 +38,7 @@ export async function exportApplications(
       { header: 'Score /10', key: 'score', width: 10 },
       { header: 'Reasoning', key: 'reasoning', width: 80 },
     ] : [
+      { header: 'Keyword score /5', key: 'kwscore', width: 14 },
       { header: 'Matched mandatory', key: 'mm', width: 30 },
       { header: 'Matched optional', key: 'mo', width: 30 },
     ]),
@@ -52,6 +53,7 @@ export async function exportApplications(
       tier: r.tier,
       score: r.score ?? '',
       reasoning: r.reasoning ?? '',
+      kwscore: r.keywordScore !== null ? Math.round(r.keywordScore * 10) / 10 : '',
       mm: r.matchedMandatory.join(', '),
       mo: r.matchedOptional.join(', '),
       decision: decisions.get(r.id) ?? r.status,

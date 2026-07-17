@@ -21,7 +21,9 @@ interface Props {
  * it into the LLM analysis pool.
  */
 export default function Rejection({ screening, jobTitle, profile, notify, onContinue }: Props) {
-  const [rows, setRows] = useState<ApplicationRow[]>(screening.rejected);
+  // Sorted by weighted keyword score, best first — the near-misses worth rescuing float to the top.
+  const [rows, setRows] = useState<ApplicationRow[]>(() =>
+    [...screening.rejected].sort((a, b) => (b.keywordScore ?? -1) - (a.keywordScore ?? -1)));
   const [checked, setChecked] = useState<Set<number>>(() => new Set(screening.rejected.map(r => r.id)));
   const [sending, setSending] = useState(false);
   const [report, setReport] = useState<EmailBatchReport | null>(null);
@@ -85,6 +87,8 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
       <h2>Rejection review</h2>
       <p className="hint">
         {rows.length} CV(s) are missing at least one mandatory keyword. {acceptedCount} CV(s) passed and will be analyzed.
+        Sorted by <strong>keyword score</strong> — matched keywords earn their importance (1–5) as marks, averaged over all
+        mandatory keywords — so the strongest near-misses are at the top.
         Checked applicants get a rejection email — <strong>uncheck</strong> anyone you want to rescue into the LLM analysis instead.
         Click a name to preview the CV in-app; use ✎ to fix badly extracted contact info.
         {screening.failures.length > 0 && (
@@ -99,6 +103,7 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
               <th><input type="checkbox" checked={allChecked} onChange={toggleAll} title="Select all" /></th>
               <th>Name &amp; contact</th>
               <th>History &amp; notes</th>
+              <th>Keyword score /5</th>
               <th>Missing / matched keywords</th>
               <th>CV</th>
             </tr>
@@ -121,6 +126,9 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
                   {r.notes && <div className="notes-preview">{r.notes}</div>}
                 </td>
                 <td>
+                  <span className="score">{r.keywordScore !== null ? r.keywordScore.toFixed(1) : '—'}</span>
+                </td>
+                <td>
                   {r.matchedMandatory.length > 0 && <span className="sub">has: {r.matchedMandatory.join(', ')}</span>}
                   {r.matchedMandatory.length > 0 && <br />}
                   <span className="sub danger-text">missing mandatory keyword(s)</span>
@@ -132,7 +140,7 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={5} className="muted">No CVs were rejected by the keyword filter.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="muted">No CVs were rejected by the keyword filter.</td></tr>}
           </tbody>
         </table>
       </div>
