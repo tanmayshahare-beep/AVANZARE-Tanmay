@@ -50,7 +50,11 @@ export default function HistoryCell({ candidateId, priorCount, currentJobId, not
               <span className={`badge ${h.status === 'accepted' ? 'ok' : h.status.startsWith('rejected') ? 'danger' : ''}`}>
                 {OUTCOME[h.status] ?? h.status}
               </span>
-              {h.score !== null && <span className="score" style={{ fontSize: 12 }}>{h.score.toFixed(1)}/10</span>}
+              {h.score !== null && (
+                <span className="score" style={{ fontSize: 12 }} title="LLM affinity score">
+                  {Math.round(h.score)}
+                </span>
+              )}
             </div>
           ))}
           {rows.length === 0 && <span className="muted">No other applications on record.</span>}

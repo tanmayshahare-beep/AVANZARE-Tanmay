@@ -1,10 +1,10 @@
 export * from './errors';
 export * from './types';
 export { ProfileStore, defaultProfile, validateProfile, DEFAULT_TEMPLATES } from './config/profiles';
-export { Database, type CandidateRecord } from './db/database';
+export { Database, type CandidateRecord, type CandidateSearchHit } from './db/database';
 export { extractText, SUPPORTED_EXTENSIONS } from './parsing/extract';
 export { extractContact, type ContactInfo } from './parsing/contact';
-export { matchKeywords, parseKeywordList } from './pipeline/keywords';
+export { matchKeywords, parseKeywordList, buildSynonymMap } from './pipeline/keywords';
 export { runScreening, scanSource } from './pipeline/screening';
 export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/router';
 export { DEFAULT_ANTHROPIC_MODEL } from './llm/anthropic';

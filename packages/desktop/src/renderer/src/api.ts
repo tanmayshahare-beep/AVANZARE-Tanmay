@@ -1,10 +1,10 @@
 import type {
-  ApplicationRow, AuditEntry, CandidateHistoryEntry, ConnectionTestResult, EmailSendReport,
+  ApplicationRow, AuditEntry, CandidateHistoryEntry, CandidateSearchHit, ConnectionTestResult, EmailSendReport,
   EmailTemplates, JobMetrics, LlmSettings,
   ScreeningInput, ScreeningProgress, ScreeningResult, SettingsProfile, Tier,
 } from '@avanzare/engine';
 
-export type { CandidateHistoryEntry, AuditEntry, JobMetrics, EmailTemplates };
+export type { CandidateHistoryEntry, AuditEntry, JobMetrics, EmailTemplates, CandidateSearchHit };
 
 export type Envelope<T> =
   | { ok: true; data: T }
@@ -54,6 +54,7 @@ interface AvzApi {
   } | null>>;
   candidates: {
     list(): Promise<Envelope<CandidateRecord[]>>;
+    search(query: string): Promise<Envelope<CandidateSearchHit[]>>;
     purge(id: number): Promise<Envelope<void>>;
     addNote(payload: { candidateIds: number[]; note: string }): Promise<Envelope<void>>;
     history(id: number): Promise<Envelope<CandidateHistoryEntry[]>>;

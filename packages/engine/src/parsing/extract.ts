@@ -50,8 +50,15 @@ const WordExtractor = require('word-extractor') as new () => { extract(file: str
 
 export const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc'];
 
+/** OCR configuration for scanned (image-only) PDFs. */
+export interface OcrOptions {
+  enabled: boolean;
+  /** Tesseract language code(s), e.g. "eng" or "eng+fra". */
+  language: string;
+}
+
 /** Extract plain text from a CV file. Throws AppError with an AVZ-PARSE code on failure. */
-export async function extractText(filePath: string): Promise<string> {
+export async function extractText(filePath: string, ocr?: OcrOptions): Promise<string> {
   const ext = path.extname(filePath).toLowerCase();
   if (!SUPPORTED_EXTENSIONS.includes(ext)) {
     throw new AppError('AVZ-PARSE-104', filePath, `extension "${ext}"`);
@@ -72,7 +79,17 @@ export async function extractText(filePath: string): Promise<string> {
       throw asAppError(err, 'AVZ-PARSE-102', filePath);
     }
     if (!text || text.replace(/\s/g, '').length < 20) {
-      // Real text layers of even one-page CVs exceed this; near-empty means scanned images.
+      // Real text layers of even one-page CVs exceed this; near-empty means a
+      // scanned image PDF. If OCR is enabled, rasterize and read it; otherwise
+      // reject with AVZ-PARSE-103 (unchanged behaviour).
+      if (ocr?.enabled) {
+        const { ocrPdf } = await import('./ocr');
+        const ocrText = await ocrPdf(buffer, ocr.language, filePath);
+        if (!ocrText || ocrText.replace(/\s/g, '').length < 20) {
+          throw new AppError('AVZ-PARSE-103', filePath, 'OCR produced no usable text');
+        }
+        return ocrText;
+      }
       throw new AppError('AVZ-PARSE-103', filePath);
     }
   } else if (ext === '.docx') {

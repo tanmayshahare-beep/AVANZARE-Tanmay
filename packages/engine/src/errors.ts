@@ -12,6 +12,7 @@ export const ERROR_CODES = {
   'AVZ-PARSE-104': 'Unsupported file type (only .pdf, .docx, .doc are screened)',
   'AVZ-PARSE-105': 'Document parsed but contained no text',
   'AVZ-PARSE-106': 'Word document could not be parsed',
+  'AVZ-PARSE-107': 'OCR failed to read a scanned PDF',
 
   // LLM 2xx — Ollama analysis
   'AVZ-LLM-201': 'Ollama endpoint unreachable',

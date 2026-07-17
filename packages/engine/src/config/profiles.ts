@@ -23,6 +23,7 @@ export function defaultProfile(name = ''): SettingsProfile {
     name,
     useAutomatically: false,
     source: { kind: 'local', path: '' },
+    ocr: { enabled: true, language: 'eng' },
     llm: { provider: 'ollama', baseUrl: 'http://localhost:11434', model: '', apiKey: '', timeoutMs: 120_000 },
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
     templates: { ...DEFAULT_TEMPLATES },
@@ -37,6 +38,7 @@ export function validateProfile(p: SettingsProfile): void {
   if (!p.name.trim()) problems.push('profile name is empty');
   if (p.source.kind === 'local' && !p.source.path.trim()) problems.push('CV source folder is not set');
   if (p.source.kind === 'cloud') problems.push('cloud sources are not yet supported (AVZ-SRC-403)');
+  if (p.ocr.enabled && !p.ocr.language.trim()) problems.push('OCR language is not set');
   if (p.llm.provider === 'anthropic') {
     if (!p.llm.apiKey.trim()) problems.push('Anthropic API key is not set');
   } else if (!/^https?:\/\//.test(p.llm.baseUrl)) {
@@ -94,6 +96,7 @@ export class ProfileStore {
         ...base,
         ...parsed,
         source: { ...base.source, ...parsed.source },
+        ocr: { ...base.ocr, ...parsed.ocr },
         llm: { ...base.llm, ...parsed.llm },
         smtp: { ...base.smtp, ...parsed.smtp },
         templates: { ...base.templates, ...parsed.templates },

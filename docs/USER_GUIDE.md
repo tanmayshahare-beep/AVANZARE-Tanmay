@@ -13,6 +13,11 @@ On first launch — or whenever no profile is marked "use automatically" — the
 
 - **CV source** — the local folder containing the resumes. Subfolders are included.
   (Cloud sources are planned; the selector is present but disabled.)
+- **OCR** — when enabled (the default), scanned / image-only PDFs that have no text
+  layer are read with optical character recognition instead of being rejected
+  (`AVZ-PARSE-103`). OCR only runs on the CVs that actually need it, but it is
+  noticeably slower than normal text extraction. Set the **language code(s)** to
+  match your CVs (Tesseract codes, e.g. `eng`, `deu`, or `eng+fra` for mixed).
 - **LLM** — pick a provider:
   - **Ollama (local / self-hosted)** — free and private; CVs never leave your network.
     Enter the server's base URL: `http://localhost:11434` for the same machine, or e.g.
@@ -58,6 +63,12 @@ The SMTP password is encrypted at rest using Windows credential protection
 - **Additional keywords** — nice-to-haves. CVs that have all mandatory keywords plus
   at least one of these are tagged **mandatory + optional**; the rest of the accepted
   CVs are tagged **mandatory only**.
+- **Keyword synonyms** (optional) — for any keyword you can list alternative spellings
+  that should *also* count as a match, so "AWS" isn't rejected because the CV wrote
+  "Amazon Web Services". The keyword itself always matches, and it's the original
+  keyword that's recorded — so tiers, scores and the dashboard are unaffected by which
+  spelling actually appeared. (The keyword-impact dashboard is the natural place to
+  spot a keyword that's rejecting too many people because it needs synonyms.)
 - **Requirement tags** (optional, all three) — structured requirements assessed by
   the LLM rather than string matching, because "5–8 years of experience" and
   "publications in NLP" can't be judged by keyword search:
@@ -71,6 +82,11 @@ The SMTP password is encrypted at rest using Windows credential protection
   Each analyzed candidate gets a ✓/✗ verdict per tag (plus the LLM's estimate of
   their years of experience) in a **Requirements** column on the results table and
   in the Excel export, and the tags are weighed into the affinity score.
+- **Hiring target** (optional) — the number of candidates you intend to hire. If
+  fewer applicants clear the mandatory keywords than this number, the rejection
+  screen tells you exactly how many short you are, so you can rescue near-misses to
+  fill the gap. On the results screen it shows a live *selected / target* count.
+  It is a guide, not a hard cap — you can still accept more or fewer.
 - **Job description for the LLM** — describe the role in detail: responsibilities,
   must-have experience, seniority, team context. The app nudges you if the
   description is very short, because ranking quality depends directly on it.
@@ -94,6 +110,9 @@ means they matched almost nothing important.
 - Applicants whose CV contained no email address show a **"no email found"** badge —
   they can still be marked rejected, but no mail is sent (logged as `AVZ-MAIL-304`).
 - Files that could not be parsed at all are listed underneath with their error codes.
+- If you set a **hiring target**, a banner at the top shows how many candidates
+  passed the keyword filter and, if that's under target, how many more you need. The
+  count updates live as you rescue (uncheck) applicants into the analysis pool.
 
 Working inside the table:
 
@@ -120,13 +139,19 @@ emails.
 ## 4. LLM analysis and results
 
 Accepted CVs (both tiers) and rescued CVs are scored by the LLM against your job
-description. The results table is sorted by **affinity score (0–10)** and shows each
-candidate's tier, contact info, CV link, ✓/✗ verdicts for any requirement tags you
-set (certifications / experience range / publications), and the LLM's reasoning
-paragraph (click to expand). Scores, verdicts and reasoning come from the model as
-structured JSON, so they are reliable even with small local models.
+description. The results table is sorted by **affinity score (0–100)** and shows each
+candidate's tier, contact info, CV link, an **Education** column, ✓/✗ verdicts for any
+requirement tags you set (certifications / experience range / publications), and the
+LLM's reasoning paragraph (click to expand). Scores, verdicts and education come from
+the model as structured JSON, so they are reliable even with small local models.
 
-- **All rows start unchecked.** Check the candidates you want to advance.
+- The **score is out of 100** and is deliberately spread across the full range so
+  strong and weak candidates separate clearly, rewarding genuine alignment with the
+  role. Formal education is weighed in: the model extracts and rates 10th- and
+  12th-grade marks, university CGPA and the highest degree, shown in the **Education**
+  column (e.g. `B.Tech · CGPA 8.7/10 · 12th 91%`) and broken out in the Excel export.
+- **All rows start unchecked.** Check the candidates you want to advance. If you set a
+  hiring target, a *selected / target* count is shown next to the send button.
 - **Send emails (N acceptances, M rejections)** — checked candidates receive the
   acceptance template, unchecked the rejection template. Because *everyone* in the
   table is emailed, the send goes through the same preview modal (both templates
@@ -165,7 +190,13 @@ history — built for GDPR/EEOC discovery requests.
 The **Candidates** tab lists every applicant ever parsed, with first/last-seen dates,
 their internal notes, expandable application history, and their most recent CV.
 Contact info is editable inline, and notes can be added in bulk to selected
-candidates. This is personal data stored on the machine — the **Delete** button on
+candidates.
+
+**Search** the whole talent pool from the box at the top: it matches against every
+stored CV's full text (and candidate names) across *all* past runs — so "find
+everyone who mentions Kubernetes and Terraform" is one query, with the matching
+passage shown for each hit. Multiple words are combined (all must appear). It's a
+fast way to source candidates from earlier openings instead of re-screening a folder. This is personal data stored on the machine — the **Delete** button on
 each row permanently removes a candidate and all their application history (use it
 for GDPR/data-deletion requests; the purge itself is recorded in the audit trail).
 

@@ -7,6 +7,8 @@ import CvDrawer, { type CvDrawerTarget } from '../components/CvDrawer';
 import NoteDialog from '../components/NoteDialog';
 import EmailPreviewModal from '../components/EmailPreviewModal';
 import CriteriaBadges from '../components/CriteriaBadges';
+import EducationCell from '../components/EducationCell';
+import CompareModal from '../components/CompareModal';
 
 interface Props {
   rows: ApplicationRow[];
@@ -14,6 +16,8 @@ interface Props {
   jobId: number;
   jobTitle: string;
   profile: SettingsProfile;
+  /** Recruiter's hiring target for this job (soft — shown as selected/target). */
+  target: number | null;
   notify: (msg: string, kind?: 'error' | 'info') => void;
   onDone: () => void;
 }
@@ -30,7 +34,7 @@ const TIER_LABEL: Record<string, { text: string; cls: string }> = {
  * unchecked get the rejection email — everyone in this table is emailed, so the
  * send goes through the preview modal and a 30-second undo countdown.
  */
-export default function Results({ rows: initialRows, failures, jobId, jobTitle, profile, notify, onDone }: Props) {
+export default function Results({ rows: initialRows, failures, jobId, jobTitle, profile, target, notify, onDone }: Props) {
   const [rows, setRows] = useState<ApplicationRow[]>(initialRows);
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -39,8 +43,11 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
   const [drawer, setDrawer] = useState<CvDrawerTarget | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const allChecked = checked.size === rows.length && rows.length > 0;
+  // Compare the checked candidates when 2+ are ticked, else the whole (sorted) table.
+  const compareRows = checked.size >= 2 ? rows.filter(r => checked.has(r.id)) : rows;
   const toggle = (id: number) => setChecked(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -102,10 +109,18 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
     <div className="panel">
       <h2>LLM analysis — {jobTitle}</h2>
       <p className="hint">
-        Sorted by affinity score. <strong>Check</strong> the candidates you want to advance; on send,
+        Sorted by affinity score (0–100). <strong>Check</strong> the candidates you want to advance; on send,
         checked receive the acceptance email and unchecked receive the rejection email.
         Click a name to preview the CV in-app.
       </p>
+
+      {target !== null && (
+        <p className="hint" style={{ color: acceptedRows.length > target ? 'var(--warn)' : undefined }}>
+          Hiring target: <strong>{target}</strong> · selected for acceptance: <strong>{acceptedRows.length}</strong>
+          {acceptedRows.length > target && <> — {acceptedRows.length - target} over target</>}
+          {acceptedRows.length < target && <> — {target - acceptedRows.length} to go</>}
+        </p>
+      )}
 
       <div className="tablewrap">
         <table>
@@ -115,7 +130,8 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
               <th>Name &amp; contact</th>
               <th>History &amp; notes</th>
               <th>Tier</th>
-              <th>Score /10</th>
+              <th>Score /100</th>
+              <th>Education</th>
               <th>Requirements</th>
               <th>Reasoning</th>
               <th>CV</th>
@@ -143,7 +159,8 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
                     {r.notes && <div className="notes-preview">{r.notes}</div>}
                   </td>
                   <td><span className={`badge ${tier.cls}`}>{tier.text}</span></td>
-                  <td><span className="score">{r.score !== null ? r.score.toFixed(1) : '—'}</span></td>
+                  <td><span className="score">{r.score !== null ? Math.round(r.score) : '—'}</span></td>
+                  <td><EducationCell verdict={r.education} /></td>
                   <td><CriteriaBadges verdict={r.criteria} /></td>
                   <td className="reasoning">
                     <span className="preview" onClick={() => toggleExpand(r.id)} title="Click to expand/collapse">
@@ -158,7 +175,7 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
                 </tr>
               );
             })}
-            {rows.length === 0 && <tr><td colSpan={8} className="muted">No candidates reached the analysis stage.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={9} className="muted">No candidates reached the analysis stage.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -202,6 +219,10 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
         ) : (
           <button className="btn primary" onClick={onDone}>Finish — new screening</button>
         )}
+        <button className="btn" disabled={rows.length < 2} onClick={() => setCompareOpen(true)}
+          title={checked.size >= 2 ? 'Compare the checked candidates' : 'Compare all candidates in the table'}>
+          Compare {checked.size >= 2 ? `selected (${checked.size})` : 'all'}
+        </button>
         <button className="btn" disabled={checked.size === 0} onClick={() => setNoteOpen(true)}>
           Add note to selected ({checked.size})
         </button>
@@ -210,6 +231,7 @@ export default function Results({ rows: initialRows, failures, jobId, jobTitle, 
       </div>
 
       <CvDrawer target={drawer} onClose={() => setDrawer(null)} notify={notify} />
+      {compareOpen && <CompareModal rows={compareRows} jobTitle={jobTitle} notify={notify} onClose={() => setCompareOpen(false)} />}
       {noteOpen && <NoteDialog count={new Set(acceptedRows.map(r => r.candidateId)).size}
         onSave={n => void addNote(n)} onCancel={() => setNoteOpen(false)} />}
       {previewOpen && (

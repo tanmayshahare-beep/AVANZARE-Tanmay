@@ -29,6 +29,13 @@ export interface SourceSettings {
   provider?: 'gdrive' | 'onedrive' | 's3';
 }
 
+/** OCR for scanned (image-only) PDFs. Slow, so it only runs on PDFs with no text layer. */
+export interface OcrSettings {
+  enabled: boolean;
+  /** Tesseract language code(s), e.g. "eng", or "eng+deu" for multiple. */
+  language: string;
+}
+
 export interface EmailTemplates {
   /** {{name}} and {{job_title}} placeholders are substituted. */
   rejectionSubject: string;
@@ -41,6 +48,7 @@ export interface SettingsProfile {
   name: string;
   useAutomatically: boolean;
   source: SourceSettings;
+  ocr: OcrSettings;
   llm: LlmSettings;
   smtp: SmtpSettings;
   templates: EmailTemplates;
@@ -58,6 +66,16 @@ export interface SettingsProfile {
 export interface WeightedKeyword {
   keyword: string;
   importance: number;
+}
+
+/**
+ * Alternative spellings for a keyword that should also count as a match, e.g.
+ * canonical "AWS" with aliases ["Amazon Web Services", "AWS Cloud"]. Applies to
+ * mandatory and optional keywords alike; the canonical term is what gets recorded.
+ */
+export interface KeywordSynonym {
+  canonical: string;
+  aliases: string[];
 }
 
 /**
@@ -82,6 +100,24 @@ export interface CriteriaVerdict {
   experienceYears: number | null;
   experienceInRange: boolean | null;
   publicationsMatch: boolean | null;
+}
+
+/**
+ * Formal-education breakdown the LLM extracts for every analyzed CV. Unlike the
+ * requirement tags this is always assessed — the recruiter asked for education
+ * to weigh into every score. Any field the CV doesn't reveal comes back null.
+ */
+export interface EducationVerdict {
+  /** School-leaving marks, as a percentage 0-100. */
+  tenthPercentage: number | null;
+  twelfthPercentage: number | null;
+  /** University CGPA and the scale it is out of (e.g. 8.7 on a scale of 10). */
+  cgpa: number | null;
+  cgpaScale: number | null;
+  /** Highest qualification, e.g. "B.Tech", "M.Sc", "PhD". */
+  highestDegree: string | null;
+  /** The model's 0-100 rating of the candidate's formal education strength. */
+  educationScore: number | null;
 }
 
 export const EMPTY_CRITERIA: JobCriteria = {
@@ -121,6 +157,7 @@ export interface ApplicationRow {
   matchedMandatory: string[];
   matchedOptional: string[];
   status: ApplicationStatus;
+  /** LLM affinity score, 0-100 (jobs scored before the 100-point rework hold 0-10 values). */
   score: number | null;
   reasoning: string | null;
   /**
@@ -131,6 +168,8 @@ export interface ApplicationRow {
   keywordScore: number | null;
   /** LLM verdicts on the job's requirement tags; null until analyzed or when none were set. */
   criteria: CriteriaVerdict | null;
+  /** Formal-education breakdown from the LLM; null until analyzed. */
+  education: EducationVerdict | null;
   /** Internal recruiter notes stored on the candidate. */
   notes: string | null;
   /** How many other jobs this candidate has applied to (cross-job history). */
@@ -185,8 +224,14 @@ export interface ScreeningInput {
   prompt: string;
   mandatoryKeywords: WeightedKeyword[];
   optionalKeywords: string[];
+  /** Recruiter-defined alternative spellings that broaden keyword matching. */
+  keywordSynonyms: KeywordSynonym[];
   criteria: JobCriteria;
+  /** How many candidates the recruiter intends to hire; null = no target. */
+  targetAcceptances: number | null;
   sourcePath: string;
+  /** OCR config for scanned PDFs; omit to disable. */
+  ocr?: OcrSettings;
   concurrency: number;
 }
 
@@ -196,6 +241,8 @@ export interface ScreeningResult {
   acceptedMandatory: ApplicationRow[];
   acceptedOptional: ApplicationRow[];
   failures: ParseFailure[];
+  /** Recruiter's hiring target for this job, echoed back for the shortfall banner; null = none. */
+  targetAcceptances: number | null;
 }
 
 export interface ScreeningProgress {

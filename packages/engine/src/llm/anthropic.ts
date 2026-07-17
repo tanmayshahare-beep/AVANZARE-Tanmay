@@ -1,7 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AppError } from '../errors';
-import type { CriteriaVerdict, JobCriteria, LlmSettings } from '../types';
+import type { CriteriaVerdict, EducationVerdict, JobCriteria, LlmSettings } from '../types';
 import { CRITERIA_SCHEMA_PROPERTIES, criteriaPrompt, evaluateCriteria, type RawCriteriaFields } from './criteria';
+import { EDUCATION_SCHEMA_PROPERTIES, educationPrompt, evaluateEducation, type RawEducationFields } from './education';
+import { SCORING_SYSTEM_PROMPT } from './ollama';
 
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-4-8';
 
@@ -57,22 +59,21 @@ export async function anthropicTestConnection(settings: LlmSettings): Promise<vo
 }
 
 // Structured-outputs schema. Numerical constraints (minimum/maximum) are not
-// supported by the API's schema subset — the 0-10 range is clamped client-side.
+// supported by the API's schema subset — the 0-100 range is clamped client-side.
 const VERDICT_SCHEMA = {
   type: 'object' as const,
   properties: {
     score: { type: 'number' as const },
     reasoning: { type: 'string' as const },
     ...CRITERIA_SCHEMA_PROPERTIES,
+    ...EDUCATION_SCHEMA_PROPERTIES,
   },
-  required: ['score', 'reasoning', 'certifications_met', 'experience_years', 'publications_match'],
+  required: [
+    'score', 'reasoning', 'certifications_met', 'experience_years', 'publications_match',
+    'tenth_percentage', 'twelfth_percentage', 'cgpa', 'cgpa_scale', 'highest_degree', 'education_score',
+  ],
   additionalProperties: false as const,
 };
-
-const SYSTEM_PROMPT =
-  'You are an experienced technical recruiter. Evaluate how well the candidate\'s CV fits the job description. ' +
-  'Respond with JSON: "score" (0-10, one decimal allowed; 10 = perfect fit) and "reasoning" ' +
-  '(one concise paragraph naming the concrete strengths and gaps that drove the score).';
 
 const MAX_CV_CHARS = 60_000; // Claude context windows dwarf local models'; still bound pathological inputs
 
@@ -82,18 +83,18 @@ export async function anthropicScoreCv(
   jobPrompt: string,
   cvText: string,
   criteria: JobCriteria,
-): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null }> {
+): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null; education: EducationVerdict }> {
   const client = makeClient(settings);
   const model = settings.model || DEFAULT_ANTHROPIC_MODEL;
   const cv = cvText.length > MAX_CV_CHARS ? cvText.slice(0, MAX_CV_CHARS) + '\n[...CV truncated...]' : cvText;
-  const userContent = `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}${criteriaPrompt(criteria)}\n\nCANDIDATE CV:\n${cv}`;
+  const userContent = `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}${criteriaPrompt(criteria)}${educationPrompt()}\n\nCANDIDATE CV:\n${cv}`;
 
   let response: Anthropic.Message;
   try {
     response = await client.messages.create({
       model,
       max_tokens: 2048, // deliberately short output: one JSON object
-      system: SYSTEM_PROMPT,
+      system: SCORING_SYSTEM_PROMPT,
       output_config: { format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
       messages: [{ role: 'user', content: userContent }],
     });
@@ -104,7 +105,7 @@ export async function anthropicScoreCv(
         response = await client.messages.create({
           model,
           max_tokens: 2048,
-          system: SYSTEM_PROMPT + ' Respond with ONLY the JSON object, no other text.',
+          system: SCORING_SYSTEM_PROMPT + ' Respond with ONLY the JSON object, no other text.',
           messages: [{ role: 'user', content: userContent }],
         });
       } catch (err2) {
@@ -126,12 +127,13 @@ export async function anthropicScoreCv(
   try {
     // Structured outputs return pure JSON; the fallback path may wrap it in prose.
     const jsonText = text.trim().startsWith('{') ? text : (text.match(/\{[\s\S]*\}/)?.[0] ?? text);
-    const parsed = JSON.parse(jsonText) as { score: number; reasoning: string } & RawCriteriaFields;
+    const parsed = JSON.parse(jsonText) as { score: number; reasoning: string } & RawCriteriaFields & RawEducationFields;
     if (typeof parsed.score !== 'number' || typeof parsed.reasoning !== 'string') throw new Error('missing fields');
     return {
-      score: Math.max(0, Math.min(10, parsed.score)),
+      score: Math.max(0, Math.min(100, parsed.score)),
       reasoning: parsed.reasoning.trim(),
       criteria: evaluateCriteria(criteria, parsed),
+      education: evaluateEducation(parsed),
     };
   } catch (err) {
     throw new AppError('AVZ-LLM-203', model, `raw response: ${text.slice(0, 300)}`, err);

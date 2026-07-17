@@ -14,6 +14,7 @@ function emptyProfile(): SettingsProfile {
     name: '',
     useAutomatically: false,
     source: { kind: 'local', path: '' },
+    ocr: { enabled: true, language: 'eng' },
     llm: { provider: 'ollama', baseUrl: 'http://localhost:11434', model: '', apiKey: '', timeoutMs: 120000 },
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
     templates: {
@@ -127,6 +128,22 @@ export default function Setup({ firstRun, current, onUse, notify }: Props) {
             </select>
           </label>
         </div>
+        <div className="grid3" style={{ marginTop: 8 }}>
+          <label className="field" style={{ justifyContent: 'end' }}>
+            <span>&nbsp;</span>
+            <span className="check"><input type="checkbox" checked={p.ocr.enabled}
+              onChange={e => set({ ocr: { ...p.ocr, enabled: e.target.checked } })} /> OCR scanned / image-only PDFs</span>
+          </label>
+          <label className="field"><span>OCR language(s)</span>
+            <input type="text" value={p.ocr.language} placeholder="eng (or eng+fra)" disabled={!p.ocr.enabled}
+              onChange={e => set({ ocr: { ...p.ocr, language: e.target.value } })} />
+          </label>
+          <span />
+        </div>
+        <p className="hint" style={{ marginTop: 0 }}>
+          When on, PDFs with no text layer are read with OCR instead of being rejected (AVZ-PARSE-103). OCR is slower —
+          it only runs on the minority of CVs that need it. Language codes are Tesseract codes (e.g. <code>eng</code>, <code>deu</code>).
+        </p>
 
         <h3>LLM</h3>
         <div className="grid3">

@@ -5,6 +5,8 @@ import ContactCell from '../components/ContactCell';
 import HistoryCell from '../components/HistoryCell';
 import CvDrawer, { type CvDrawerTarget } from '../components/CvDrawer';
 import CriteriaBadges from '../components/CriteriaBadges';
+import EducationCell from '../components/EducationCell';
+import CompareModal from '../components/CompareModal';
 
 interface Props {
   exportDir?: string;
@@ -48,6 +50,8 @@ export default function LastResults({ exportDir, notify }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [drawer, setDrawer] = useState<CvDrawerTarget | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -65,7 +69,14 @@ export default function LastResults({ exportDir, notify }: Props) {
     ]);
     if (m) setMetrics(m);
     setRows(apps ? [...apps].sort((a, b) => (b.score ?? -1) - (a.score ?? -1)) : []);
+    setSelected(new Set());
   }, [notify]);
+
+  const toggleSelect = (id: number) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   useEffect(() => { if (jobId !== null) void loadJob(jobId); }, [jobId, loadJob]);
 
@@ -173,7 +184,8 @@ export default function LastResults({ exportDir, notify }: Props) {
           <table>
             <thead>
               <tr>
-                <th>Name &amp; contact</th><th>History &amp; notes</th><th>Tier</th><th>Score /10</th><th>Requirements</th><th>Reasoning</th><th>Status</th><th>CV</th>
+                <th />
+                <th>Name &amp; contact</th><th>History &amp; notes</th><th>Tier</th><th>Score /100</th><th>Education</th><th>Requirements</th><th>Reasoning</th><th>Status</th><th>CV</th>
               </tr>
             </thead>
             <tbody>
@@ -183,6 +195,8 @@ export default function LastResults({ exportDir, notify }: Props) {
                 const reasoning = r.reasoning ?? '';
                 return (
                   <tr key={r.id}>
+                    <td><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)}
+                      title="Select to compare" /></td>
                     <td>
                       <button className="linklike" style={{ fontWeight: 600 }}
                         onClick={() => setDrawer({ applicationId: r.id, name: r.name, cvPath: r.cvPath })}>
@@ -197,7 +211,8 @@ export default function LastResults({ exportDir, notify }: Props) {
                       {r.notes && <div className="notes-preview">{r.notes}</div>}
                     </td>
                     <td><span className={`badge ${tier.cls}`}>{tier.text}</span></td>
-                    <td><span className="score">{r.score !== null ? r.score.toFixed(1) : '—'}</span></td>
+                    <td><span className="score">{r.score !== null ? Math.round(r.score) : '—'}</span></td>
+                    <td><EducationCell verdict={r.education} /></td>
                     <td><CriteriaBadges verdict={r.criteria} /></td>
                     <td className="reasoning">
                       {reasoning && (
@@ -217,11 +232,23 @@ export default function LastResults({ exportDir, notify }: Props) {
           </table>
         </div>
         <div className="btn-row">
+          <button className="btn" disabled={selected.size < 2} onClick={() => setCompareOpen(true)}
+            title="Tick 2 or more rows to compare them side by side">
+            Compare selected ({selected.size})
+          </button>
           <button className="btn" onClick={exportTable}>Export to Excel</button>
         </div>
       </div>
 
       <CvDrawer target={drawer} onClose={() => setDrawer(null)} notify={notify} />
+      {compareOpen && (
+        <CompareModal
+          rows={rows.filter(r => selected.has(r.id))}
+          jobTitle={jobs.find(j => j.id === jobId)?.title ?? 'screening'}
+          notify={notify}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
     </>
   );
 }

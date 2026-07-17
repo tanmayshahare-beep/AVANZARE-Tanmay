@@ -6,7 +6,7 @@ import type { Database } from '../db/database';
 import type { ParseFailure, ScreeningInput, ScreeningProgress, ScreeningResult, Tier } from '../types';
 import { extractText, SUPPORTED_EXTENSIONS } from '../parsing/extract';
 import { extractContact } from '../parsing/contact';
-import { matchKeywords } from './keywords';
+import { buildSynonymMap, matchKeywords } from './keywords';
 import { mapLimit } from '../util/concurrency';
 
 /** Recursively collect CV files under the source folder. */
@@ -48,14 +48,21 @@ export async function runScreening(
     keyword: k.keyword,
     importance: Math.max(1, Math.min(5, Math.round(k.importance) || 3)),
   }));
-  const jobId = db.createJob(input.jobTitle, input.prompt, mandatory, input.optionalKeywords, input.criteria);
+  const targetAcceptances = input.targetAcceptances !== null && input.targetAcceptances > 0
+    ? Math.floor(input.targetAcceptances)
+    : null;
+  const synonymMap = buildSynonymMap(input.keywordSynonyms);
+  const jobId = db.createJob(
+    input.jobTitle, input.prompt, mandatory, input.optionalKeywords,
+    input.keywordSynonyms, input.criteria, targetAcceptances,
+  );
 
   await mapLimit(files, input.concurrency, async (file) => {
     try {
-      const text = await extractText(file);
+      const text = await extractText(file, input.ocr);
       const contact = extractContact(text, file);
-      const matchedMandatory = matchKeywords(text, mandatory.map(k => k.keyword));
-      const matchedOptional = matchKeywords(text, input.optionalKeywords);
+      const matchedMandatory = matchKeywords(text, mandatory.map(k => k.keyword), synonymMap);
+      const matchedOptional = matchKeywords(text, input.optionalKeywords, synonymMap);
 
       const allMandatory = matchedMandatory.length === mandatory.length;
       const tier: Tier = !allMandatory ? 'rejected' : matchedOptional.length > 0 ? 'optional' : 'mandatory';
@@ -89,5 +96,6 @@ export async function runScreening(
     acceptedMandatory: db.listApplications(jobId, ['mandatory']),
     acceptedOptional: db.listApplications(jobId, ['optional']),
     failures,
+    targetAcceptances,
   };
 }

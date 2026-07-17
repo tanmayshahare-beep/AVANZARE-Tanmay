@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('avz', {
   lastJob: () => invoke('job:last'),
   candidates: {
     list: () => invoke('candidates:list'),
+    search: (query: string) => invoke('candidates:search', query),
     purge: (id: number) => invoke('candidates:purge', id),
     addNote: (payload: unknown) => invoke('candidates:addNote', payload),
     history: (id: number) => invoke('candidates:history', id),

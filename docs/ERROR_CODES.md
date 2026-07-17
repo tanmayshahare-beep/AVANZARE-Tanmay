@@ -14,7 +14,8 @@ must be kept in sync with it.
 |---|---|---|---|
 | AVZ-PARSE-101 | File could not be read from disk | File locked, deleted mid-run, or permissions | Check the file exists and is readable; re-run |
 | AVZ-PARSE-102 | PDF is corrupt or could not be parsed | Truncated download, malformed PDF | Re-export or re-request the CV |
-| AVZ-PARSE-103 | PDF has no extractable text layer | Scanned image PDF; OCR is not yet enabled | Ask for a text-based CV, or convert with an OCR tool |
+| AVZ-PARSE-103 | PDF has no extractable text layer | Scanned image PDF and OCR is turned off (or OCR ran but found nothing) | Enable OCR in Technical Settings, or ask for a text-based CV |
+| AVZ-PARSE-107 | OCR failed to read a scanned PDF | OCR engine could not load or errored on the page | Check the OCR language code; retry; if it persists, request a text-based CV |
 | AVZ-PARSE-104 | Unsupported file type | Only `.pdf`, `.docx`, `.doc` are screened | Convert the file |
 | AVZ-PARSE-105 | Document parsed but contained no text | Empty or image-only document | Same as 103 |
 | AVZ-PARSE-106 | Word document could not be parsed | Corrupt or password-protected file | Remove protection / re-export |

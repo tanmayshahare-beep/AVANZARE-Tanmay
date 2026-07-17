@@ -71,8 +71,11 @@ export default function App() {
       prompt: def.prompt,
       mandatoryKeywords: def.mandatory,
       optionalKeywords: def.optional,
+      keywordSynonyms: def.keywordSynonyms,
       criteria: def.criteria,
+      targetAcceptances: def.targetAcceptances,
       sourcePath: profile.source.path,
+      ocr: profile.ocr,
       concurrency: profile.concurrency,
     }), (m) => { notify(m); setWizard('job'); });
     if (res) { setScreening(res); setWizard('rejection'); }
@@ -103,6 +106,9 @@ export default function App() {
     setTab('screening');
   };
 
+  // The results views carry a wide, many-column table — give them extra room.
+  const wideView = tab === 'results' || (tab === 'screening' && wizard === 'results');
+
   return (
     <>
       <div className="topbar">
@@ -122,7 +128,7 @@ export default function App() {
         <ThemeToggle />
       </div>
 
-      <div className="main"><div className="container">
+      <div className="main"><div className={`container${wideView ? ' wide' : ''}`}>
         {tab === 'settings' && (
           <Setup firstRun={!profile} current={profile} onUse={useProfile} notify={notify} />
         )}
@@ -138,7 +144,8 @@ export default function App() {
             {wizard === 'analyzing' && <Running label="LLM analysis in progress" />}
             {wizard === 'results' && screening && job && (
               <Results rows={results} failures={llmFailures} jobId={screening.jobId}
-                jobTitle={job.title} profile={profile} notify={notify} onDone={restart} />
+                jobTitle={job.title} profile={profile} target={job.targetAcceptances}
+                notify={notify} onDone={restart} />
             )}
           </>
         )}

@@ -68,6 +68,8 @@ body {
 
 .main { flex: 1; overflow: auto; padding: 20px; }
 .container { max-width: 1080px; margin: 0 auto; }
+/* Results views hold a wide, many-column table — give them extra breathing room. */
+.container.wide { max-width: 1320px; }
 
 /* ---- panels & forms ---- */
 .panel {
@@ -128,6 +130,8 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--bor
 th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
 tbody tr:hover { background: var(--row-hover); }
 td .sub { color: var(--muted); font-size: 12px; }
+/* Education breakdown: keep it compact — wrap onto two lines rather than a wide nowrap cell. */
+td .edu { display: inline-block; max-width: 148px; white-space: normal; line-height: 1.35; }
 
 .badge {
   display: inline-block;
@@ -144,12 +148,26 @@ td .sub { color: var(--muted); font-size: 12px; }
 
 .score { font-weight: 700; font-size: 15px; }
 
+mark { background: var(--warn); color: var(--bg); border-radius: 3px; padding: 0 2px; }
+
 /* ---- misc ---- */
 .progress-outer { height: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; overflow: hidden; }
 .progress-inner { height: 100%; background: var(--accent); transition: width 0.2s; }
 
 .test-result { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; font-size: 13px; }
 .test-result .code { font-family: Consolas, monospace; font-size: 12px; }
+
+.banner {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 13px;
+  background: var(--bg);
+}
+.banner.danger { border-left-color: var(--danger); }
+.banner.ok { border-left-color: var(--ok); }
 
 .toast {
   position: fixed;

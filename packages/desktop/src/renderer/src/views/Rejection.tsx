@@ -36,6 +36,11 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
   const acceptedCount = screening.acceptedMandatory.length + screening.acceptedOptional.length;
   const selected = rows.filter(r => checked.has(r.id));
 
+  // Live shortfall against the recruiter's hiring target: candidates that passed the
+  // keyword filter, plus anyone currently rescued (unchecked). Shrinks as rows are rescued.
+  const target = screening.targetAcceptances;
+  const eligible = acceptedCount + rescued.length;
+
   const toggle = (id: number) => setChecked(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -95,6 +100,21 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
           <> <span className="danger-text">{screening.failures.length} file(s) could not be parsed</span> — see below.</>
         )}
       </p>
+
+      {target !== null && (
+        <div className={`banner ${eligible < target ? 'danger' : 'ok'}`}>
+          <strong>Hiring target: {target}.</strong>{' '}
+          {acceptedCount} passed the mandatory keywords
+          {rescued.length > 0 && <> + {rescued.length} rescued</>} = <strong>{eligible}</strong> eligible for analysis.{' '}
+          {eligible < target ? (
+            <span className="danger-text">
+              You are <strong>{target - eligible}</strong> short — uncheck near-misses below to rescue more into the LLM analysis.
+            </span>
+          ) : (
+            <span className="ok-text">Target met.</span>
+          )}
+        </div>
+      )}
 
       <div className="tablewrap">
         <table>

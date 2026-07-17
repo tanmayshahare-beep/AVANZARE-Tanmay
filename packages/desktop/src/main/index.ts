@@ -174,6 +174,7 @@ function registerIpc(): void {
   });
 
   handle('candidates:list', () => db.listCandidates());
+  handle('candidates:search', (query: string) => db.searchCandidates(query));
   handle('candidates:purge', (id: number) => { db.purgeCandidate(id); });
 
   handle('file:open', async (filePath: string) => {

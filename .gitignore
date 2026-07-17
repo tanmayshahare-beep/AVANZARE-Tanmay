@@ -6,3 +6,4 @@ out/
 packages/desktop/release/
 *.tsbuildinfo
 scratch/
+*.traineddata

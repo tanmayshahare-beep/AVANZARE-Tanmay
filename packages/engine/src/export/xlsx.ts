@@ -35,7 +35,12 @@ export async function exportApplications(
     { header: 'Phone', key: 'phone', width: 18 },
     { header: 'Tier', key: 'tier', width: 14 },
     ...(withScores ? [
-      { header: 'Score /10', key: 'score', width: 10 },
+      { header: 'Score /100', key: 'score', width: 10 },
+      { header: 'Highest degree', key: 'degree', width: 16 },
+      { header: 'CGPA', key: 'cgpa', width: 12 },
+      { header: '12th %', key: 'twelfth', width: 10 },
+      { header: '10th %', key: 'tenth', width: 10 },
+      { header: 'Education /100', key: 'eduscore', width: 13 },
       { header: 'Certifications', key: 'certs', width: 14 },
       { header: 'Experience', key: 'exp', width: 14 },
       { header: 'Publications', key: 'pubs', width: 14 },
@@ -49,13 +54,20 @@ export async function exportApplications(
     { header: 'CV', key: 'cv', width: 60 },
   ];
   const mark = (v: boolean | null) => v === null ? '' : v ? 'yes' : 'no';
+  const edu = (r: ApplicationRow) => r.education;
   for (const r of rows) {
+    const e = edu(r);
     ws.addRow({
       name: r.name,
       email: r.email ?? '(no email found)',
       phone: r.phone ?? '',
       tier: r.tier,
       score: r.score ?? '',
+      degree: e?.highestDegree ?? '',
+      cgpa: e?.cgpa != null ? (e.cgpaScale != null ? `${e.cgpa}/${e.cgpaScale}` : `${e.cgpa}`) : '',
+      twelfth: e?.twelfthPercentage ?? '',
+      tenth: e?.tenthPercentage ?? '',
+      eduscore: e?.educationScore ?? '',
       certs: mark(r.criteria?.certificationsMet ?? null),
       exp: r.criteria?.experienceInRange !== null && r.criteria?.experienceInRange !== undefined
         ? `${r.criteria.experienceYears ?? '?'}y — ${r.criteria.experienceInRange ? 'in range' : 'out of range'}`

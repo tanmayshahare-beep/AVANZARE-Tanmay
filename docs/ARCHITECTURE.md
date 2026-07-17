@@ -33,8 +33,11 @@ The **desktop** package has three layers:
 
 1. **Scan** the source folder recursively for `.pdf/.docx/.doc`.
 2. **Extract text** — PDF via `pdfjs-dist` (line breaks reconstructed from `hasEOL`),
-   DOCX via `mammoth`, legacy DOC via `word-extractor`. Scanned PDFs with no text
-   layer are rejected with `AVZ-PARSE-103` (OCR is a planned addition).
+   DOCX via `mammoth`, legacy DOC via `word-extractor`. A PDF with no text layer
+   (scanned image) falls back to **OCR** when enabled: each page is rasterized with
+   `@napi-rs/canvas` (prebuilt, no native build tools needed) and read by
+   `tesseract.js`. Those heavy deps are imported lazily, so only scanned CVs pay
+   for them. With OCR off, text-less PDFs are still rejected with `AVZ-PARSE-103`.
 3. **Extract contact info** heuristically (first email-like token; phone-like digit
    runs; name = first plausible short line near the top, falling back to the file
    name) and **upsert into `candidates`** keyed by email.
@@ -53,10 +56,13 @@ Two providers behind one interface (`engine/src/llm/router.ts`), selected per
 settings profile:
 
 - **Ollama** — `/api/chat` with `stream:false` and a JSON-schema `format` of
-  `{score: number(0-10), reasoning: string}` — structured output, not prose
-  parsing. The base URL is a profile setting, so "LLM on another machine" is just
-  a different URL. Model discovery uses `/api/tags`. CV text is truncated to ~14k
-  characters to respect small context windows.
+  `{score: number(0-100), reasoning, plus requirement-tag and formal-education
+  fields}` — structured output, not prose parsing. The score uses a 0–100 rubric
+  weighted toward role alignment, with formal education (10th/12th marks, university
+  CGPA, highest degree, and an education sub-score) folded in. The base URL is a
+  profile setting, so "LLM on another machine" is just a different URL. Model
+  discovery uses `/api/tags`. CV text is truncated to ~14k characters to respect
+  small context windows.
 - **Claude API (Anthropic)** — the official `@anthropic-ai/sdk`, default model
   `claude-opus-4-8`. Structured outputs via `output_config.format` (json_schema),
   with a prompt-for-JSON fallback for models that don't support it; model
@@ -91,8 +97,8 @@ collect per-item errors and continue, so one bad CV never aborts a run.
 
 ## Known limitations / next steps
 
-- Scanned (image-only) PDFs are rejected rather than OCR'd (`AVZ-PARSE-103`);
-  tesseract.js integration is the planned fix.
+- OCR language data is fetched by `tesseract.js` on first use; a fully offline
+  install still needs the traineddata/core bundled locally (packaging follow-up).
 - Cloud CV sources (Drive/OneDrive/S3) are stubbed behind `AVZ-SRC-403`.
 - Candidates without an email cannot be deduplicated across runs.
 - Headless CLI/service mode is designed for (engine is UI-free) but not yet shipped.

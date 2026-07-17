@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import type { JobCriteria, SettingsProfile, WeightedKeyword } from '@avanzare/engine';
+import type { JobCriteria, KeywordSynonym, SettingsProfile, WeightedKeyword } from '@avanzare/engine';
 
 export interface JobDef {
   title: string;
   mandatory: WeightedKeyword[];
   optional: string[];
+  /** Alternative spellings that broaden keyword matching. */
+  keywordSynonyms: KeywordSynonym[];
   criteria: JobCriteria;
+  /** How many candidates the recruiter intends to hire; null = no target. */
+  targetAcceptances: number | null;
   prompt: string;
 }
 
@@ -26,9 +30,13 @@ export default function Job({ profile, initial, onStart }: Props) {
   const [mandatory, setMandatory] = useState(initial?.mandatory.map(k => k.keyword).join(', ') ?? '');
   const [optional, setOptional] = useState(initial?.optional.join(', ') ?? '');
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
+  const [target, setTarget] = useState(initial?.targetAcceptances?.toString() ?? '');
   // keyword → importance (1-5); keywords not in the map default to 3
   const [importance, setImportance] = useState<Record<string, number>>(() =>
     Object.fromEntries((initial?.mandatory ?? []).map(k => [k.keyword, k.importance])));
+  // keyword → comma-separated alias string (alternative spellings that also count)
+  const [aliases, setAliases] = useState<Record<string, string>>(() =>
+    Object.fromEntries((initial?.keywordSynonyms ?? []).map(s => [s.canonical, s.aliases.join(', ')])));
   // Requirement tags — each optional; assessed by the LLM with per-tag verdicts
   const [certs, setCerts] = useState(initial?.criteria.certifications.join(', ') ?? '');
   const [expMin, setExpMin] = useState(initial?.criteria.experienceMinYears?.toString() ?? '');
@@ -40,6 +48,12 @@ export default function Job({ profile, initial, onStart }: Props) {
   const ready = title.trim() && mandNames.length > 0 && prompt.trim().length > 0;
 
   const weighted: WeightedKeyword[] = mandNames.map(k => ({ keyword: k, importance: importance[k] ?? 3 }));
+
+  // Build synonym groups for any keyword (mandatory or optional) that has aliases typed.
+  const allKeywords = [...mandNames, ...opt];
+  const keywordSynonyms: KeywordSynonym[] = allKeywords
+    .map(k => ({ canonical: k, aliases: parseKeywords(aliases[k] ?? '') }))
+    .filter(s => s.aliases.length > 0);
 
   const parseYears = (s: string): number | null => {
     const n = Number(s.trim());
@@ -53,6 +67,11 @@ export default function Job({ profile, initial, onStart }: Props) {
   };
   const rangeInvalid = criteria.experienceMinYears !== null && criteria.experienceMaxYears !== null
     && criteria.experienceMinYears > criteria.experienceMaxYears;
+
+  const targetAcceptances = ((): number | null => {
+    const n = Number(target.trim());
+    return target.trim() !== '' && Number.isInteger(n) && n > 0 ? n : null;
+  })();
 
   return (
     <div className="panel">
@@ -99,6 +118,38 @@ export default function Job({ profile, initial, onStart }: Props) {
         </>
       )}
 
+      {allKeywords.length > 0 && (
+        <>
+          <h3>Keyword synonyms</h3>
+          <p className="hint">
+            Optional. Alternative spellings that should <strong>also</strong> count as a match for a keyword — so
+            "AWS" isn't rejected because a CV wrote "Amazon Web Services". Comma-separate the alternatives; the
+            keyword itself is always matched, and the original keyword is what's recorded.
+          </p>
+          <div className="grid2">
+            {allKeywords.map(k => (
+              <label className="field" key={k}>
+                <span>{k} — also match</span>
+                <input type="text" value={aliases[k] ?? ''} placeholder="e.g. Amazon Web Services, AWS Cloud"
+                  onChange={e => setAliases(prev => ({ ...prev, [k]: e.target.value }))} />
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+
+      <h3>Hiring target</h3>
+      <p className="hint">
+        Optional. How many candidates you intend to hire. If fewer applicants clear the mandatory keywords than
+        this, the rejection screen tells you how many short you are so you can rescue near-misses.
+      </p>
+      <div className="grid3">
+        <label className="field"><span>Number of candidates to hire (optional)</span>
+          <input type="number" min={1} value={target} placeholder="e.g. 15"
+            onChange={e => setTarget(e.target.value)} />
+        </label>
+      </div>
+
       <h3>Requirement tags</h3>
       <p className="hint">
         Optional structured requirements assessed by the LLM — each analyzed candidate gets a ✓/✗ verdict
@@ -139,7 +190,7 @@ export default function Job({ profile, initial, onStart }: Props) {
 
       <div className="btn-row">
         <button className="btn primary" disabled={!ready || rangeInvalid}
-          onClick={() => onStart({ title: title.trim(), mandatory: weighted, optional: opt, criteria, prompt: prompt.trim() })}>
+          onClick={() => onStart({ title: title.trim(), mandatory: weighted, optional: opt, keywordSynonyms, criteria, targetAcceptances, prompt: prompt.trim() })}>
           Start parsing
         </button>
         {!ready && <span className="muted">Job title, at least one mandatory keyword and a description are required.</span>}

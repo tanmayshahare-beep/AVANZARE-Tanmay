@@ -4,8 +4,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { asAppError } from '../errors';
 import type {
-  ApplicationRow, ApplicationStatus, AuditEntry, CandidateHistoryEntry, CriteriaVerdict,
-  JobCriteria, JobMetrics, Tier, WeightedKeyword,
+  ApplicationRow, ApplicationStatus, AuditEntry, CandidateHistoryEntry, CriteriaVerdict, EducationVerdict,
+  JobCriteria, JobMetrics, KeywordSynonym, Tier, WeightedKeyword,
 } from '../types';
 import { EMPTY_CRITERIA } from '../types';
 
@@ -68,6 +68,9 @@ const MIGRATIONS: { table: string; column: string; ddl: string }[] = [
   { table: 'applications', column: 'keyword_score', ddl: 'keyword_score REAL' },
   { table: 'jobs', column: 'criteria', ddl: "criteria TEXT NOT NULL DEFAULT ''" },
   { table: 'applications', column: 'criteria_json', ddl: 'criteria_json TEXT' },
+  { table: 'applications', column: 'education_json', ddl: 'education_json TEXT' },
+  { table: 'jobs', column: 'target_acceptances', ddl: 'target_acceptances INTEGER' },
+  { table: 'jobs', column: 'keyword_synonyms', ddl: "keyword_synonyms TEXT NOT NULL DEFAULT '[]'" },
 ];
 
 /** Jobs saved before weighted keywords stored plain strings — normalize to importance 3. */
@@ -91,6 +94,19 @@ export interface CandidateRecord {
   applicationCount: number;
 }
 
+/** A talent-pool search result: a candidate plus a snippet of the matching CV text. */
+export interface CandidateSearchHit {
+  candidateId: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  lastCvPath: string | null;
+  lastSeen: string;
+  applicationCount: number;
+  /** Excerpt of the matched CV text with the hit marked, or '' on the LIKE fallback. */
+  snippet: string;
+}
+
 const APP_SELECT = `
   SELECT a.*, c.name, c.email, c.phone, c.notes,
     (SELECT COUNT(*) FROM applications a2
@@ -101,6 +117,8 @@ const APP_SELECT = `
 export class Database {
   readonly db: BetterSqlite3.Database;
   private readonly actor = os.userInfo().username;
+  /** Whether the FTS5 talent-pool index is usable; false → search degrades to LIKE. */
+  private ftsReady = false;
 
   constructor(dbPath: string) {
     try {
@@ -121,9 +139,105 @@ export class Database {
     } catch (err) {
       throw asAppError(err, 'AVZ-DB-602', dbPath);
     }
+    this.initSearchIndex();
   }
 
   close() { this.db.close(); }
+
+  // ---- talent-pool full-text search (FTS5) ----
+
+  /**
+   * Build the FTS5 index over candidate name + CV text. FTS5 is compiled into the
+   * standard SQLite build, but if it's ever missing this degrades gracefully to a
+   * LIKE scan (ftsReady stays false) rather than breaking the app.
+   */
+  private initSearchIndex(): void {
+    try {
+      this.db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS app_fts USING fts5(name, cv_text, tokenize='porter unicode61')");
+      const { n } = this.db.prepare('SELECT COUNT(*) AS n FROM app_fts').get() as { n: number };
+      if (n === 0) {
+        // First run after upgrade: backfill from existing applications.
+        const rows = this.db.prepare(
+          'SELECT a.id AS id, c.name AS name, a.cv_text AS cv_text FROM applications a JOIN candidates c ON c.id = a.candidate_id',
+        ).all() as { id: number; name: string; cv_text: string }[];
+        const ins = this.db.prepare('INSERT INTO app_fts (rowid, name, cv_text) VALUES (?, ?, ?)');
+        this.db.transaction(() => { for (const r of rows) ins.run(r.id, r.name ?? '', r.cv_text ?? ''); })();
+      }
+      this.ftsReady = true;
+    } catch {
+      this.ftsReady = false;
+    }
+  }
+
+  /** Keep the FTS row for one application in sync (called on insert/update). */
+  private indexApplication(appId: number, cvText: string): void {
+    if (!this.ftsReady) return;
+    try {
+      const c = this.db.prepare(
+        'SELECT c.name AS name FROM applications a JOIN candidates c ON c.id = a.candidate_id WHERE a.id = ?',
+      ).get(appId) as { name: string } | undefined;
+      this.db.prepare('DELETE FROM app_fts WHERE rowid = ?').run(appId);
+      this.db.prepare('INSERT INTO app_fts (rowid, name, cv_text) VALUES (?, ?, ?)').run(appId, c?.name ?? '', cvText);
+    } catch { /* indexing is best-effort; never fail a screening because of it */ }
+  }
+
+  /** Turn free user input into a safe FTS5 MATCH expression (AND of quoted terms). */
+  private ftsQuery(q: string): string {
+    return q.replace(/["*():^-]/g, ' ').trim().split(/\s+/).filter(Boolean).map(t => `"${t}"`).join(' ');
+  }
+
+  /**
+   * Search the whole talent pool by CV content and name. Returns one hit per
+   * candidate (their best-ranked match), most relevant first.
+   */
+  searchCandidates(query: string, limit = 60): CandidateSearchHit[] {
+    const q = query.trim();
+    if (!q) return [];
+    try {
+      const match = this.ftsQuery(q);
+      if (this.ftsReady && match) {
+        const rows = this.db.prepare(
+          `SELECT a.candidate_id AS cid, snippet(app_fts, 1, '⟪', '⟫', '…', 12) AS snip
+           FROM app_fts JOIN applications a ON a.id = app_fts.rowid
+           WHERE app_fts MATCH ? ORDER BY rank LIMIT 500`,
+        ).all(match) as { cid: number; snip: string }[];
+        return this.collectHits(rows.map(r => ({ candidateId: r.cid, snippet: r.snip })), limit);
+      }
+    } catch { /* malformed MATCH etc. → fall through to LIKE */ }
+
+    const like = `%${q.replace(/[%_\\]/g, m => '\\' + m)}%`;
+    const rows = this.db.prepare(
+      `SELECT DISTINCT a.candidate_id AS cid FROM applications a JOIN candidates c ON c.id = a.candidate_id
+       WHERE a.cv_text LIKE ? ESCAPE '\\' OR c.name LIKE ? ESCAPE '\\' OR c.notes LIKE ? ESCAPE '\\' LIMIT ?`,
+    ).all(like, like, like, limit * 3) as { cid: number }[];
+    return this.collectHits(rows.map(r => ({ candidateId: r.cid, snippet: '' })), limit);
+  }
+
+  private collectHits(raw: { candidateId: number; snippet: string }[], limit: number): CandidateSearchHit[] {
+    const seen = new Map<number, string>();
+    for (const r of raw) {
+      if (!seen.has(r.candidateId)) seen.set(r.candidateId, r.snippet);
+      if (seen.size >= limit) break;
+    }
+    const hits: CandidateSearchHit[] = [];
+    for (const [cid, snippet] of seen) {
+      const c = this.db.prepare(
+        'SELECT c.*, (SELECT COUNT(*) FROM applications a WHERE a.candidate_id = c.id) AS app_count FROM candidates c WHERE c.id = ?',
+      ).get(cid) as Record<string, unknown> | undefined;
+      if (!c) continue;
+      hits.push({
+        candidateId: cid,
+        name: c.name as string,
+        email: (c.email as string) ?? null,
+        phone: (c.phone as string) ?? null,
+        lastCvPath: (c.last_cv_path as string) ?? null,
+        lastSeen: c.last_seen as string,
+        applicationCount: c.app_count as number,
+        snippet,
+      });
+    }
+    return hits;
+  }
 
   // ---- audit trail ----
 
@@ -176,6 +290,12 @@ export class Database {
       const before = this.db.prepare('SELECT name, email, phone FROM candidates WHERE id = ?').get(candidateId);
       this.db.prepare('UPDATE candidates SET name = ?, email = ?, phone = ? WHERE id = ?')
         .run(name, email, phone, candidateId);
+      // Keep the search index's name column current for this candidate's applications.
+      if (this.ftsReady) {
+        const apps = this.db.prepare('SELECT id, cv_text FROM applications WHERE candidate_id = ?')
+          .all(candidateId) as { id: number; cv_text: string }[];
+        for (const a of apps) this.indexApplication(a.id, a.cv_text);
+      }
       this.audit('contact_edit', `from ${JSON.stringify(before)} to ${JSON.stringify({ name, email, phone })}`, candidateId);
     } catch (err) {
       throw asAppError(err, 'AVZ-DB-603', `updateCandidateContact(${candidateId})`);
@@ -237,7 +357,11 @@ export class Database {
   purgeCandidate(candidateId: number): void {
     const tx = this.db.transaction(() => {
       const apps = this.db.prepare('SELECT id FROM applications WHERE candidate_id = ?').all(candidateId) as { id: number }[];
-      for (const a of apps) this.db.prepare('DELETE FROM email_log WHERE application_id = ?').run(a.id);
+      for (const a of apps) {
+        this.db.prepare('DELETE FROM email_log WHERE application_id = ?').run(a.id);
+        // GDPR: the erased candidate's CV text must not linger in the search index.
+        if (this.ftsReady) { try { this.db.prepare('DELETE FROM app_fts WHERE rowid = ?').run(a.id); } catch { /* best-effort */ } }
+      }
       this.db.prepare('DELETE FROM applications WHERE candidate_id = ?').run(candidateId);
       this.db.prepare('DELETE FROM candidates WHERE id = ?').run(candidateId);
       // The audit row records the purge itself; personal detail is not repeated.
@@ -250,10 +374,15 @@ export class Database {
 
   // ---- jobs & applications ----
 
-  createJob(title: string, prompt: string, mandatory: WeightedKeyword[], optional: string[], criteria: JobCriteria): number {
+  createJob(
+    title: string, prompt: string, mandatory: WeightedKeyword[], optional: string[],
+    synonyms: KeywordSynonym[], criteria: JobCriteria, targetAcceptances: number | null,
+  ): number {
     const res = this.db.prepare(
-      'INSERT INTO jobs (title, prompt, mandatory_keywords, optional_keywords, criteria, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    ).run(title, prompt, JSON.stringify(mandatory), JSON.stringify(optional), JSON.stringify(criteria), new Date().toISOString());
+      `INSERT INTO jobs (title, prompt, mandatory_keywords, optional_keywords, keyword_synonyms, criteria, target_acceptances, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(title, prompt, JSON.stringify(mandatory), JSON.stringify(optional), JSON.stringify(synonyms),
+      JSON.stringify(criteria), targetAcceptances, new Date().toISOString());
     return Number(res.lastInsertRowid);
   }
 
@@ -268,7 +397,8 @@ export class Database {
 
   getJob(jobId: number): {
     id: number; title: string; prompt: string;
-    mandatory: WeightedKeyword[]; optional: string[]; criteria: JobCriteria; createdAt: string;
+    mandatory: WeightedKeyword[]; optional: string[]; synonyms: KeywordSynonym[]; criteria: JobCriteria;
+    targetAcceptances: number | null; createdAt: string;
   } {
     const r = this.db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as Record<string, unknown> | undefined;
     if (!r) throw asAppError(new Error(`job ${jobId} not found`), 'AVZ-DB-603', `getJob(${jobId})`);
@@ -283,7 +413,9 @@ export class Database {
       prompt: r.prompt as string,
       mandatory: normalizeMandatory(JSON.parse(r.mandatory_keywords as string)),
       optional: JSON.parse(r.optional_keywords as string),
+      synonyms: r.keyword_synonyms ? JSON.parse(r.keyword_synonyms as string) as KeywordSynonym[] : [],
       criteria,
+      targetAcceptances: (r.target_acceptances as number) ?? null,
       createdAt: r.created_at as string,
     };
   }
@@ -301,9 +433,11 @@ export class Database {
            matched_mandatory = excluded.matched_mandatory, matched_optional = excluded.matched_optional,
            keyword_score = excluded.keyword_score`,
       ).run(jobId, candidateId, cvPath, cvText, cvHash, tier, JSON.stringify(matchedMandatory), JSON.stringify(matchedOptional), keywordScore);
-      if (res.lastInsertRowid && res.changes === 1) return Number(res.lastInsertRowid);
-      const row = this.db.prepare('SELECT id FROM applications WHERE job_id = ? AND candidate_id = ?').get(jobId, candidateId) as { id: number };
-      return row.id;
+      const appId = res.lastInsertRowid && res.changes === 1
+        ? Number(res.lastInsertRowid)
+        : (this.db.prepare('SELECT id FROM applications WHERE job_id = ? AND candidate_id = ?').get(jobId, candidateId) as { id: number }).id;
+      this.indexApplication(appId, cvText);
+      return appId;
     } catch (err) {
       throw asAppError(err, 'AVZ-DB-603', `insertApplication(job ${jobId}, candidate ${candidateId})`);
     }
@@ -326,6 +460,7 @@ export class Database {
       reasoning: (r.reasoning as string) ?? null,
       keywordScore: (r.keyword_score as number) ?? null,
       criteria: r.criteria_json ? JSON.parse(r.criteria_json as string) as CriteriaVerdict : null,
+      education: r.education_json ? JSON.parse(r.education_json as string) as EducationVerdict : null,
       notes: ((r.notes as string) || null),
       priorCount: (r.prior_count as number) ?? 0,
     };
@@ -365,9 +500,13 @@ export class Database {
     this.audit('tier_change', `application ${applicationId} → ${tier}`, null, applicationId);
   }
 
-  setVerdict(applicationId: number, score: number, reasoning: string, criteria: CriteriaVerdict | null = null): void {
-    this.db.prepare('UPDATE applications SET score = ?, reasoning = ?, criteria_json = ? WHERE id = ?')
-      .run(score, reasoning, criteria ? JSON.stringify(criteria) : null, applicationId);
+  setVerdict(
+    applicationId: number, score: number, reasoning: string,
+    criteria: CriteriaVerdict | null = null, education: EducationVerdict | null = null,
+  ): void {
+    this.db.prepare('UPDATE applications SET score = ?, reasoning = ?, criteria_json = ?, education_json = ? WHERE id = ?')
+      .run(score, reasoning, criteria ? JSON.stringify(criteria) : null,
+        education ? JSON.stringify(education) : null, applicationId);
   }
 
   logEmail(applicationId: number | null, kind: string, recipient: string | null, status: string, errorCode?: string): void {

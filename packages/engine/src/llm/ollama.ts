@@ -1,16 +1,31 @@
 import { AppError } from '../errors';
-import type { CriteriaVerdict, JobCriteria, LlmSettings } from '../types';
+import type { CriteriaVerdict, EducationVerdict, JobCriteria, LlmSettings } from '../types';
 import { CRITERIA_SCHEMA_PROPERTIES, criteriaPrompt, evaluateCriteria, type RawCriteriaFields } from './criteria';
+import { EDUCATION_SCHEMA_PROPERTIES, educationPrompt, evaluateEducation, type RawEducationFields } from './education';
 
 const VERDICT_SCHEMA = {
   type: 'object',
   properties: {
-    score: { type: 'number', minimum: 0, maximum: 10 },
+    score: { type: 'number', minimum: 0, maximum: 100 },
     reasoning: { type: 'string' },
     ...CRITERIA_SCHEMA_PROPERTIES,
+    ...EDUCATION_SCHEMA_PROPERTIES,
   },
-  required: ['score', 'reasoning'],
+  required: ['score', 'reasoning', 'education_score'],
 } as const;
+
+/** Scoring rubric shared by both providers: 0-100, spread out, education weighted in. */
+export const SCORING_SYSTEM_PROMPT =
+  'You are an experienced technical recruiter. Score how well the candidate\'s CV fits the job description on a ' +
+  'scale of 0 to 100, and use the FULL range so strong and weak candidates are clearly separated:\n' +
+  '- 85-100: an excellent, closely aligned fit — the core required skills/experience are clearly evidenced.\n' +
+  '- 65-84: a good fit with minor gaps.\n' +
+  '- 40-64: a partial fit — some relevant strengths but notable gaps.\n' +
+  '- 0-39: a weak fit — little of what the role needs.\n' +
+  'Be discriminating: reward candidates whose experience genuinely aligns with the role rather than clustering ' +
+  'everyone in the middle. Weigh formal education into the score as described below. ' +
+  'Respond with JSON: "score" (0-100, one decimal allowed), "reasoning" (one concise paragraph naming the ' +
+  'concrete strengths and gaps that drove the score), plus the requested requirement and education fields.';
 
 // Local models have finite context; a CV longer than this is truncated with a marker.
 const MAX_CV_CHARS = 14_000;
@@ -57,7 +72,7 @@ export async function ollamaScoreCv(
   jobPrompt: string,
   cvText: string,
   criteria: JobCriteria,
-): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null }> {
+): Promise<{ score: number; reasoning: string; criteria: CriteriaVerdict | null; education: EducationVerdict }> {
   const cv = cvText.length > MAX_CV_CHARS ? cvText.slice(0, MAX_CV_CHARS) + '\n[...CV truncated...]' : cvText;
   const data = await ollamaFetch(settings, '/api/chat', {
     model: settings.model,
@@ -65,28 +80,23 @@ export async function ollamaScoreCv(
     format: VERDICT_SCHEMA,
     options: { temperature: 0.2 },
     messages: [
-      {
-        role: 'system',
-        content:
-          'You are an experienced technical recruiter. Evaluate how well the candidate\'s CV fits the job description. ' +
-          'Respond with JSON: "score" (0-10, one decimal allowed; 10 = perfect fit) and "reasoning" ' +
-          '(one concise paragraph naming the concrete strengths and gaps that drove the score).',
-      },
+      { role: 'system', content: SCORING_SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}${criteriaPrompt(criteria)}\n\nCANDIDATE CV:\n${cv}`,
+        content: `JOB TITLE: ${jobTitle}\n\nJOB DESCRIPTION AND REQUIREMENTS:\n${jobPrompt}${criteriaPrompt(criteria)}${educationPrompt()}\n\nCANDIDATE CV:\n${cv}`,
       },
     ],
   }) as { message?: { content?: string } };
 
   const content = data.message?.content ?? '';
   try {
-    const parsed = JSON.parse(content) as { score: number; reasoning: string } & RawCriteriaFields;
+    const parsed = JSON.parse(content) as { score: number; reasoning: string } & RawCriteriaFields & RawEducationFields;
     if (typeof parsed.score !== 'number' || typeof parsed.reasoning !== 'string') throw new Error('missing fields');
     return {
-      score: Math.max(0, Math.min(10, parsed.score)),
+      score: Math.max(0, Math.min(100, parsed.score)),
       reasoning: parsed.reasoning.trim(),
       criteria: evaluateCriteria(criteria, parsed),
+      education: evaluateEducation(parsed),
     };
   } catch (err) {
     throw new AppError('AVZ-LLM-203', settings.baseUrl, `raw response: ${content.slice(0, 300)}`, err);
