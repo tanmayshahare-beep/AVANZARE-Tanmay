@@ -1,0 +1,23 @@
+{
+  "name": "avanzare",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AVANZARE - resume screening assistant for recruiters",
+  "workspaces": [
+    "packages/engine",
+    "packages/desktop"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck -w @avanzare/engine && npm run typecheck -w @avanzare/desktop",
+    "build:engine": "npm run build -w @avanzare/engine",
+    "dev": "npm run build -w @avanzare/engine && npm run dev -w @avanzare/desktop",
+    "build": "npm run build -w @avanzare/engine && npm run build -w @avanzare/desktop",
+    "dist": "npm run build -w @avanzare/engine && npm run dist -w @avanzare/desktop",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3 -m packages/desktop"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
+    "pdfkit": "^0.19.1",
+    "typescript": "^5.6.3"
+  }
+}

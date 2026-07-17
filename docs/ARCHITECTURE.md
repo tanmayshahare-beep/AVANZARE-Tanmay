@@ -1,0 +1,89 @@
+# AVANZARE — Architecture
+
+## Engine / UI split
+
+The app is a two-package monorepo:
+
+```
+packages/engine    @avanzare/engine   — all real logic, plain Node.js/TypeScript
+packages/desktop   @avanzare/desktop  — Electron shell + minimal React UI
+```
+
+The **engine** knows nothing about Electron. It exposes plain async functions
+(`runScreening`, `runLlmAnalysis`, `sendDecisionEmails`, `testConnections`,
+`exportApplications`, …) over a SQLite database and a profile store. This is what
+makes the roadmap's headless/server mode cheap: a future CLI or Windows service can
+drive the same engine with no UI attached, supervised by any process manager, while
+the Electron app connects remotely.
+
+The **desktop** package has three layers:
+
+- `src/main` — Electron main process. Owns the engine instances (DB, profile store,
+  logger) and exposes them over IPC. Every handler returns a uniform envelope
+  `{ok:true,data} | {ok:false,error:{code,message,location}}` so renderer code never
+  deals with thrown exceptions; every failure is logged with its `AVZ-*` code.
+- `src/preload` — context-isolated bridge exposing a typed `window.avz` API.
+- `src/renderer` — React UI. Screen flow:
+  `Technical Setup → Job definition → Parsing progress → Rejection review →
+  LLM analysis → Results`. The Technical Settings tab reuses the same Setup
+  component. Dark/light theme via a `data-theme` attribute + CSS variables,
+  defaulting to the OS preference, persisted in `localStorage`.
+
+## Screening pipeline
+
+1. **Scan** the source folder recursively for `.pdf/.docx/.doc`.
+2. **Extract text** — PDF via `pdfjs-dist` (line breaks reconstructed from `hasEOL`),
+   DOCX via `mammoth`, legacy DOC via `word-extractor`. Scanned PDFs with no text
+   layer are rejected with `AVZ-PARSE-103` (OCR is a planned addition).
+3. **Extract contact info** heuristically (first email-like token; phone-like digit
+   runs; name = first plausible short line near the top, falling back to the file
+   name) and **upsert into `candidates`** keyed by email.
+4. **Keyword match** — case-insensitive with word boundaries applied only next to
+   alphanumeric keyword edges, so `java` ≠ `javascript` but `c++`/`.NET` work.
+5. **Bucket** into tiers: `rejected` (missing a mandatory keyword), `mandatory`
+   (all mandatory), `optional` (mandatory + ≥1 optional). Recruiter decisions later
+   add `rescued`. Extracted CV text is stored on the application row so the LLM
+   stage never re-parses files.
+6. Concurrency is a simple `mapLimit` pool bounded by the profile's concurrency
+   setting (LLM stage is additionally capped at 2 in-flight requests).
+
+## LLM integration
+
+Ollama's `/api/chat` with `stream:false` and a JSON-schema `format` of
+`{score: number(0-10), reasoning: string}` — structured output, not prose parsing.
+The base URL is a profile setting, so "LLM on another machine" is just a different
+URL. Model discovery uses `/api/tags`. CV text is truncated to ~14k characters to
+respect small context windows.
+
+## Data storage & privacy
+
+All state lives in Electron's per-user data dir:
+
+- `avanzare.sqlite` — `candidates` (persistent talent DB, deduped by email),
+  `jobs`, `applications` (tier, status, score, reasoning, extracted text),
+  `email_log` (every send attempt with status and error code).
+- `profiles/*.profile.json` — connection/runtime settings. `smtp.pass` is encrypted
+  with Electron `safeStorage` before hitting disk.
+- `logs/avanzare.log` — JSON-lines log.
+
+Privacy notes: applicant contact data is retained across runs by design (talent
+pool). The Candidates tab provides per-candidate **purge** (candidate + applications
++ email log) to honor erasure requests. Rejection/acceptance emails are never sent
+automatically — a recruiter confirms every batch, which keeps a human in the loop
+for automated-decision compliance.
+
+## Error framework
+
+`AppError` (engine `errors.ts`) carries `{code, location, detail}`; the code
+registry is the single source of truth and is mirrored in
+[ERROR_CODES.md](ERROR_CODES.md). `asAppError` wraps unknown failures without
+clobbering existing codes. Batch operations (parsing, LLM scoring, email sends)
+collect per-item errors and continue, so one bad CV never aborts a run.
+
+## Known limitations / next steps
+
+- Scanned (image-only) PDFs are rejected rather than OCR'd (`AVZ-PARSE-103`);
+  tesseract.js integration is the planned fix.
+- Cloud CV sources (Drive/OneDrive/S3) are stubbed behind `AVZ-SRC-403`.
+- Candidates without an email cannot be deduplicated across runs.
+- Headless CLI/service mode is designed for (engine is UI-free) but not yet shipped.
