@@ -75,6 +75,7 @@ export default function Results({ rows, failures, jobId, jobTitle, profile, noti
       applicationIds: rows.map(r => r.id),
       decisions,
       suggestedName: `llm-results-${jobTitle.replace(/\W+/g, '-')}.xlsx`,
+      exportDir: profile.exportDir,
     }), notify);
     if (res?.saved) notify(`Exported to ${res.path}`, 'info');
   };

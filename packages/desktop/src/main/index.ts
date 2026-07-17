@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import {
   AppError, Database, Logger, ProfileStore,
@@ -96,15 +97,30 @@ function registerIpc(): void {
     return reports;
   });
 
+  // The most recent screening, straight from the database — survives tab switches and app restarts.
+  handle('job:last', () => {
+    const job = db.lastJob();
+    if (!job) return null;
+    return { job, applications: db.listApplications(job.id) };
+  });
+
   handle('export:table', async (payload: {
     kind: 'applications' | 'results' | 'candidates';
     applicationIds?: number[];
     decisions?: [number, string][];
     suggestedName: string;
+    exportDir?: string;
   }) => {
     if (!win) throw new AppError('AVZ-APP-901', 'export', 'no window');
+    let defaultPath = payload.suggestedName;
+    if (payload.exportDir) {
+      if (!fs.existsSync(payload.exportDir) || !fs.statSync(payload.exportDir).isDirectory()) {
+        throw new AppError('AVZ-EXP-702', payload.exportDir);
+      }
+      defaultPath = path.join(payload.exportDir, payload.suggestedName);
+    }
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      defaultPath: payload.suggestedName,
+      defaultPath,
       filters: [{ name: 'Excel workbook', extensions: ['xlsx'] }],
     });
     if (canceled || !filePath) return { saved: false as const };

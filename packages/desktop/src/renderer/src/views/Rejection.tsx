@@ -63,6 +63,7 @@ export default function Rejection({ screening, jobTitle, profile, notify, onCont
       applicationIds: rows.map(r => r.id),
       decisions,
       suggestedName: `rejection-review-${jobTitle.replace(/\W+/g, '-')}.xlsx`,
+      exportDir: profile.exportDir,
     }), notify);
     if (res?.saved) notify(`Exported to ${res.path}`, 'info');
   };

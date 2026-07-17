@@ -6,9 +6,11 @@ import Job, { type JobDef } from './views/Job';
 import Running from './views/Running';
 import Rejection from './views/Rejection';
 import Results from './views/Results';
+import LastResults from './views/LastResults';
 import Candidates from './views/Candidates';
 
-type View = 'setup' | 'job' | 'running' | 'rejection' | 'analyzing' | 'results' | 'settings' | 'candidates';
+type Tab = 'screening' | 'results' | 'candidates' | 'settings';
+type WizardStep = 'job' | 'running' | 'rejection' | 'analyzing' | 'results';
 
 export interface Toast { text: string; kind: 'error' | 'info' }
 
@@ -28,7 +30,10 @@ function ThemeToggle() {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>('setup');
+  // Which top-level tab is open. Wizard state lives separately, so switching
+  // tabs mid-screening and coming back loses nothing.
+  const [tab, setTab] = useState<Tab>('settings');
+  const [wizard, setWizard] = useState<WizardStep>('job');
   const [profile, setProfile] = useState<SettingsProfile | null>(null);
   const [job, setJob] = useState<JobDef | null>(null);
   const [screening, setScreening] = useState<ScreeningResult | null>(null);
@@ -41,7 +46,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), kindTimeout(toast.kind));
+    const t = setTimeout(() => setToast(null), toast.kind === 'error' ? 9000 : 4000);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -50,16 +55,16 @@ export default function App() {
     void (async () => {
       const list = await call(avz.profiles.list(), notify);
       const auto = list?.find(p => p.useAutomatically);
-      if (auto) { setProfile(auto); setView('job'); }
+      if (auto) { setProfile(auto); setTab('screening'); }
     })();
   }, [notify]);
 
-  const useProfile = (p: SettingsProfile) => { setProfile(p); setView('job'); };
+  const useProfile = (p: SettingsProfile) => { setProfile(p); setTab('screening'); };
 
   const startScreening = async (def: JobDef) => {
     if (!profile) return;
     setJob(def);
-    setView('running');
+    setWizard('running');
     const res = await call(avz.runScreening({
       jobTitle: def.title,
       prompt: def.prompt,
@@ -67,8 +72,8 @@ export default function App() {
       optionalKeywords: def.optional,
       sourcePath: profile.source.path,
       concurrency: profile.concurrency,
-    }), (m) => { notify(m); setView('job'); });
-    if (res) { setScreening(res); setView('rejection'); }
+    }), (m) => { notify(m); setWizard('job'); });
+    if (res) { setScreening(res); setWizard('rejection'); }
   };
 
   /** After the rejection screen: rescue unchecked, then run LLM over accepted + rescued. */
@@ -80,76 +85,65 @@ export default function App() {
       ...screening.acceptedOptional.map(a => a.id),
       ...rescuedIds,
     ];
-    if (!ids.length) { notify('No applications to analyze — every CV was rejected.', 'info'); setView('job'); return; }
-    setView('analyzing');
+    if (!ids.length) { notify('No applications to analyze — every CV was rejected.', 'info'); setWizard('job'); return; }
+    setWizard('analyzing');
     const res = await call(avz.analyze({ jobId: screening.jobId, applicationIds: ids, profile }),
-      (m) => { notify(m); setView('rejection'); });
+      (m) => { notify(m); setWizard('rejection'); });
     if (res) {
       setResults(res.rows);
       setLlmFailures(res.failures);
-      setView('results');
+      setWizard('results');
     }
   };
 
-  const restart = () => { setJob(null); setScreening(null); setResults([]); setLlmFailures([]); setView('job'); };
-
-  const inWizard = view === 'job' || view === 'running' || view === 'rejection' || view === 'analyzing' || view === 'results';
+  const restart = () => {
+    setJob(null); setScreening(null); setResults([]); setLlmFailures([]); setWizard('job');
+    setTab('screening');
+  };
 
   return (
     <>
       <div className="topbar">
         <span className="brand">AVANZARE</span>
-        <button className="tab" disabled={!profile} onClick={restart}
-          style={inWizard ? { fontWeight: 600 } : undefined}>Screening</button>
-        <button className={`tab ${view === 'candidates' ? 'active' : ''}`} disabled={!profile}
-          onClick={() => setView('candidates')}>Candidates</button>
-        <button className={`tab ${view === 'settings' || view === 'setup' ? 'active' : ''}`}
-          onClick={() => setView(profile ? 'settings' : 'setup')}>Technical Settings</button>
+        <button className={`tab ${tab === 'screening' ? 'active' : ''}`} disabled={!profile}
+          onClick={() => setTab('screening')}>Screening</button>
+        <button className={`tab ${tab === 'results' ? 'active' : ''}`}
+          onClick={() => setTab('results')}>Results</button>
+        <button className={`tab ${tab === 'candidates' ? 'active' : ''}`} disabled={!profile}
+          onClick={() => setTab('candidates')}>Candidates</button>
+        <button className={`tab ${tab === 'settings' ? 'active' : ''}`}
+          onClick={() => setTab('settings')}>Technical Settings</button>
         <span className="spacer" />
         {profile && <span className="profile-chip">profile: {profile.name || '(unsaved)'}</span>}
         <ThemeToggle />
       </div>
 
       <div className="main"><div className="container">
-        {(view === 'setup' || view === 'settings') && (
-          <Setup
-            firstRun={view === 'setup'}
-            current={profile}
-            onUse={useProfile}
-            notify={notify}
-          />
+        {tab === 'settings' && (
+          <Setup firstRun={!profile} current={profile} onUse={useProfile} notify={notify} />
         )}
-        {view === 'job' && profile && <Job profile={profile} initial={job} onStart={startScreening} />}
-        {view === 'running' && <Running label="Parsing CVs" />}
-        {view === 'rejection' && screening && job && profile && (
-          <Rejection
-            screening={screening}
-            jobTitle={job.title}
-            profile={profile}
-            notify={notify}
-            onContinue={continueToAnalysis}
-          />
+
+        {tab === 'screening' && profile && (
+          <>
+            {wizard === 'job' && <Job profile={profile} initial={job} onStart={startScreening} />}
+            {wizard === 'running' && <Running label="Parsing CVs" />}
+            {wizard === 'rejection' && screening && job && (
+              <Rejection screening={screening} jobTitle={job.title} profile={profile}
+                notify={notify} onContinue={continueToAnalysis} />
+            )}
+            {wizard === 'analyzing' && <Running label="LLM analysis in progress" />}
+            {wizard === 'results' && screening && job && (
+              <Results rows={results} failures={llmFailures} jobId={screening.jobId}
+                jobTitle={job.title} profile={profile} notify={notify} onDone={restart} />
+            )}
+          </>
         )}
-        {view === 'analyzing' && <Running label="LLM analysis in progress" />}
-        {view === 'results' && screening && job && profile && (
-          <Results
-            rows={results}
-            failures={llmFailures}
-            jobId={screening.jobId}
-            jobTitle={job.title}
-            profile={profile}
-            notify={notify}
-            onDone={restart}
-          />
-        )}
-        {view === 'candidates' && <Candidates notify={notify} />}
+
+        {tab === 'results' && <LastResults exportDir={profile?.exportDir} notify={notify} />}
+        {tab === 'candidates' && <Candidates exportDir={profile?.exportDir} notify={notify} />}
       </div></div>
 
       {toast && <div className={`toast ${toast.kind}`}>{toast.text}</div>}
     </>
   );
-}
-
-function kindTimeout(kind: Toast['kind']): number {
-  return kind === 'error' ? 9000 : 4000;
 }

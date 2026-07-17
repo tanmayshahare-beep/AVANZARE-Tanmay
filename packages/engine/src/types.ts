@@ -42,6 +42,12 @@ export interface SettingsProfile {
   templates: EmailTemplates;
   /** Max CVs parsed/analyzed concurrently — keeps shared servers polite. */
   concurrency: number;
+  /**
+   * Default folder for Excel exports (empty = ask every time). Pointing this at
+   * a OneDrive/Google Drive synced folder effectively gives cloud upload;
+   * direct API upload will arrive with the cloud connectors.
+   */
+  exportDir: string;
 }
 
 export type Tier = 'rejected' | 'mandatory' | 'optional' | 'rescued';

@@ -4,6 +4,7 @@
   "private": true,
   "description": "AVANZARE desktop app",
   "main": "out/main/index.js",
+  "author": "AVANZARE",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -11,9 +12,15 @@
     "dist": "electron-vite build && electron-builder"
   },
   "dependencies": {
-    "@avanzare/engine": "*"
+    "better-sqlite3": "^12.4.1",
+    "exceljs": "^4.4.0",
+    "mammoth": "^1.8.0",
+    "nodemailer": "^6.9.16",
+    "pdfjs-dist": "^3.11.174",
+    "word-extractor": "^1.0.4"
   },
   "devDependencies": {
+    "@avanzare/engine": "*",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
@@ -30,6 +37,12 @@
     "productName": "AVANZARE",
     "directories": { "output": "release" },
     "files": ["out/**"],
-    "win": { "target": "nsis" }
+    "npmRebuild": false,
+    "asarUnpack": ["**/*.node"],
+    "win": { "target": "nsis" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

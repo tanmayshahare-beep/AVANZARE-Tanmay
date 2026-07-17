@@ -135,6 +135,13 @@ export class Database {
     return Number(res.lastInsertRowid);
   }
 
+  /** Most recent screening job, or null if none exist yet. Backs the persistent Results tab. */
+  lastJob(): { id: number; title: string; createdAt: string } | null {
+    const r = this.db.prepare('SELECT id, title, created_at FROM jobs ORDER BY id DESC LIMIT 1').get() as
+      Record<string, unknown> | undefined;
+    return r ? { id: r.id as number, title: r.title as string, createdAt: r.created_at as string } : null;
+  }
+
   getJob(jobId: number): { id: number; title: string; prompt: string; mandatory: string[]; optional: string[] } {
     const r = this.db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId) as Record<string, unknown> | undefined;
     if (!r) throw asAppError(new Error(`job ${jobId} not found`), 'AVZ-DB-603', `getJob(${jobId})`);

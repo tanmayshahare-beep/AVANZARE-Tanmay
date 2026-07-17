@@ -23,6 +23,7 @@ function emptyProfile(): SettingsProfile {
       acceptanceBody: 'Dear {{name}},\n\nThank you for applying for the {{job_title}} position. We were impressed by your profile and would like to invite you to the next stage of the process. We will contact you shortly to arrange the details.\n\nBest regards',
     },
     concurrency: 4,
+    exportDir: '',
   };
 }
 
@@ -195,6 +196,24 @@ export default function Setup({ firstRun, current, onUse, notify }: Props) {
           <label className="field"><span>Acceptance body</span>
             <textarea value={p.templates.acceptanceBody}
               onChange={e => set({ templates: { ...p.templates, acceptanceBody: e.target.value } })} />
+          </label>
+        </div>
+
+        <h3>Exports</h3>
+        <p className="hint">
+          Default folder for Excel exports (leave empty to be asked every time). Tip: point this at a
+          OneDrive / Google Drive synced folder and every export is automatically uploaded to the cloud.
+        </p>
+        <div className="grid3">
+          <label className="field"><span>Export folder</span>
+            <input type="text" value={p.exportDir} placeholder="C:\HR\exports (optional)"
+              onChange={e => set({ exportDir: e.target.value })} />
+          </label>
+          <label className="field"><span>&nbsp;</span>
+            <button className="btn" onClick={async () => {
+              const folder = await call(avz.pickFolder(), notify);
+              if (folder) set({ exportDir: folder });
+            }}>Browse…</button>
           </label>
         </div>
 

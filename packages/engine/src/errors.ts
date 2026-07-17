@@ -45,6 +45,7 @@ export const ERROR_CODES = {
 
   // EXP 7xx — exports
   'AVZ-EXP-701': 'Excel export failed',
+  'AVZ-EXP-702': 'Configured export folder does not exist or is not writable',
 
   // APP 9xx — catch-all
   'AVZ-APP-901': 'Unexpected internal error',

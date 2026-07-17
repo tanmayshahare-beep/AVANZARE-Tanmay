@@ -69,6 +69,7 @@ must be kept in sync with it.
 | Code | Meaning | Typical cause | Remedy |
 |---|---|---|---|
 | AVZ-EXP-701 | Excel export failed | Target file open in Excel, disk permissions | Close the file in Excel and retry |
+| AVZ-EXP-702 | Configured export folder missing / not writable | Folder in Technical Settings was moved or deleted | Fix or clear the export folder setting |
 
 ## APP 9xx — catch-all
 

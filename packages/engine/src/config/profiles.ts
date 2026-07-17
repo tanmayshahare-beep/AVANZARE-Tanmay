@@ -27,6 +27,7 @@ export function defaultProfile(name = ''): SettingsProfile {
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
     templates: { ...DEFAULT_TEMPLATES },
     concurrency: 4,
+    exportDir: '',
   };
 }
 

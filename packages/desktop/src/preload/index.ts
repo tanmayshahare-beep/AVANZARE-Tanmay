@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('avz', {
   analyze: (payload: unknown) => invoke('llm:analyze', payload),
   sendEmails: (payload: unknown) => invoke('emails:send', payload),
   exportTable: (payload: unknown) => invoke('export:table', payload),
+  lastJob: () => invoke('job:last'),
   candidates: {
     list: () => invoke('candidates:list'),
     purge: (id: number) => invoke('candidates:purge', id),

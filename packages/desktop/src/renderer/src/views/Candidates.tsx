@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { avz, call, type CandidateRecord } from '../api';
 
-interface Props { notify: (msg: string, kind?: 'error' | 'info') => void }
+interface Props {
+  exportDir?: string;
+  notify: (msg: string, kind?: 'error' | 'info') => void;
+}
 
 /** The persistent talent database accumulated across screening runs. */
-export default function Candidates({ notify }: Props) {
+export default function Candidates({ exportDir, notify }: Props) {
   const [rows, setRows] = useState<CandidateRecord[]>([]);
 
   const refresh = async () => {
@@ -22,7 +25,7 @@ export default function Candidates({ notify }: Props) {
   };
 
   const exportTable = async () => {
-    const res = await call(avz.exportTable({ kind: 'candidates', suggestedName: 'candidates.xlsx' }), notify);
+    const res = await call(avz.exportTable({ kind: 'candidates', suggestedName: 'candidates.xlsx', exportDir }), notify);
     if (res?.saved) notify(`Exported to ${res.path}`, 'info');
   };
 

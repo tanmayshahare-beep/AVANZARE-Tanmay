@@ -20,6 +20,10 @@ On first launch — or whenever no profile is marked "use automatically" — the
 - **Email templates** — subject and body for rejection and acceptance mails.
   `{{name}}` and `{{job_title}}` are replaced per candidate. "Acceptance" should be
   worded as an invitation to the next stage, not a final offer.
+- **Exports** — an optional default folder for Excel exports. The save dialog still
+  lets you change the location each time. Pointing this at a OneDrive / Google Drive /
+  Dropbox *synced* folder means every export is uploaded to the cloud automatically;
+  direct API upload to cloud storage will ship together with the cloud CV sources.
 - **Runtime** — how many CVs are processed in parallel. Keep this low (2–4) if the
   machine runs other workloads.
 
@@ -81,7 +85,14 @@ reliable even with small local models.
   table is emailed, a confirmation dialog restates both counts before sending.
 - A full send report (sent / failed with error codes / no email) is shown after.
 
-## 5. Candidate database
+## 5. Results tab
+
+The **Results** tab always shows the most recent screening, read directly from the
+local database — switching tabs mid-run, or even closing and reopening the app,
+never loses it. It lists every application with its tier, LLM score and reasoning,
+decision status, and a link to the CV, and can be exported to Excel at any time.
+
+## 6. Candidate database
 
 The **Candidates** tab lists every applicant ever parsed, with first/last-seen dates
 and their most recent CV. This is personal data stored on the machine — the

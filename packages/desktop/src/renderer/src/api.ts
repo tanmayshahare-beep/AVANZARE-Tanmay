@@ -38,7 +38,12 @@ interface AvzApi {
     applicationIds?: number[];
     decisions?: [number, string][];
     suggestedName: string;
+    exportDir?: string;
   }): Promise<Envelope<{ saved: boolean; path?: string }>>;
+  lastJob(): Promise<Envelope<{
+    job: { id: number; title: string; createdAt: string };
+    applications: ApplicationRow[];
+  } | null>>;
   candidates: {
     list(): Promise<Envelope<CandidateRecord[]>>;
     purge(id: number): Promise<Envelope<void>>;
