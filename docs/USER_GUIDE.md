@@ -13,9 +13,16 @@ On first launch — or whenever no profile is marked "use automatically" — the
 
 - **CV source** — the local folder containing the resumes. Subfolders are included.
   (Cloud sources are planned; the selector is present but disabled.)
-- **LLM (Ollama)** — the base URL of the Ollama server. `http://localhost:11434` for
-  the same machine, or e.g. `http://192.168.1.50:11434` for another machine on your
-  network. Click **Load models** to fill the model dropdown from the server.
+- **LLM** — pick a provider:
+  - **Ollama (local / self-hosted)** — free and private; CVs never leave your network.
+    Enter the server's base URL: `http://localhost:11434` for the same machine, or e.g.
+    `http://192.168.1.50:11434` for another machine on your network.
+  - **Claude API (Anthropic)** — for teams that already have API credits: paste an API
+    key from console.anthropic.com. The default model is `claude-opus-4-8`. The key is
+    stored encrypted on this machine. Note that with this option CV contents are sent
+    to Anthropic's API for scoring.
+
+  Either way, click **Load models** to fill the model dropdown from the provider.
 - **Email (SMTP)** — your outgoing mail server and credentials, plus the from-address.
 - **Email templates** — subject and body for rejection and acceptance mails.
   `{{name}}` and `{{job_title}}` are replaced per candidate. "Acceptance" should be

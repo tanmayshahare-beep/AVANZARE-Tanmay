@@ -14,26 +14,42 @@ let db: Database;
 let profiles: ProfileStore;
 let logger: Logger;
 
-// ---------- profile secret handling (SMTP password encrypted at rest) ----------
+// ---------- profile secret handling (SMTP password + LLM API key encrypted at rest) ----------
 
 const ENC_PREFIX = 'enc:';
 
-function sealProfile(p: SettingsProfile): SettingsProfile {
-  if (p.smtp.pass && !p.smtp.pass.startsWith(ENC_PREFIX) && safeStorage.isEncryptionAvailable()) {
-    return { ...p, smtp: { ...p.smtp, pass: ENC_PREFIX + safeStorage.encryptString(p.smtp.pass).toString('base64') } };
+function seal(value: string): string {
+  if (value && !value.startsWith(ENC_PREFIX) && safeStorage.isEncryptionAvailable()) {
+    return ENC_PREFIX + safeStorage.encryptString(value).toString('base64');
   }
-  return p;
+  return value;
+}
+
+function unseal(value: string): string {
+  if (value?.startsWith(ENC_PREFIX) && safeStorage.isEncryptionAvailable()) {
+    try {
+      return safeStorage.decryptString(Buffer.from(value.slice(ENC_PREFIX.length), 'base64'));
+    } catch {
+      return '';
+    }
+  }
+  return value;
+}
+
+function sealProfile(p: SettingsProfile): SettingsProfile {
+  return {
+    ...p,
+    smtp: { ...p.smtp, pass: seal(p.smtp.pass) },
+    llm: { ...p.llm, apiKey: seal(p.llm.apiKey) },
+  };
 }
 
 function unsealProfile(p: SettingsProfile): SettingsProfile {
-  if (p.smtp.pass?.startsWith(ENC_PREFIX) && safeStorage.isEncryptionAvailable()) {
-    try {
-      return { ...p, smtp: { ...p.smtp, pass: safeStorage.decryptString(Buffer.from(p.smtp.pass.slice(ENC_PREFIX.length), 'base64')) } };
-    } catch {
-      return { ...p, smtp: { ...p.smtp, pass: '' } };
-    }
-  }
-  return p;
+  return {
+    ...p,
+    smtp: { ...p.smtp, pass: unseal(p.smtp.pass) },
+    llm: { ...p.llm, apiKey: unseal(p.llm.apiKey) },
+  };
 }
 
 // ---------- uniform IPC envelope: every handler returns {ok} and never throws ----------

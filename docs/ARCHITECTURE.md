@@ -49,11 +49,20 @@ The **desktop** package has three layers:
 
 ## LLM integration
 
-Ollama's `/api/chat` with `stream:false` and a JSON-schema `format` of
-`{score: number(0-10), reasoning: string}` — structured output, not prose parsing.
-The base URL is a profile setting, so "LLM on another machine" is just a different
-URL. Model discovery uses `/api/tags`. CV text is truncated to ~14k characters to
-respect small context windows.
+Two providers behind one interface (`engine/src/llm/router.ts`), selected per
+settings profile:
+
+- **Ollama** — `/api/chat` with `stream:false` and a JSON-schema `format` of
+  `{score: number(0-10), reasoning: string}` — structured output, not prose
+  parsing. The base URL is a profile setting, so "LLM on another machine" is just
+  a different URL. Model discovery uses `/api/tags`. CV text is truncated to ~14k
+  characters to respect small context windows.
+- **Claude API (Anthropic)** — the official `@anthropic-ai/sdk`, default model
+  `claude-opus-4-8`. Structured outputs via `output_config.format` (json_schema),
+  with a prompt-for-JSON fallback for models that don't support it; model
+  discovery via `/v1/models`. The SDK's typed errors map onto `AVZ-LLM-*` codes
+  (auth → 206, rate limit → 207). The API key lives in the profile, encrypted at
+  rest with `safeStorage` like the SMTP password.
 
 ## Data storage & privacy
 

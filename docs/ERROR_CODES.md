@@ -28,6 +28,8 @@ must be kept in sync with it.
 | AVZ-LLM-203 | LLM response could not be parsed as `{score, reasoning}` | Model ignored the JSON schema (rare) | Retry; prefer an instruction-tuned model |
 | AVZ-LLM-204 | LLM request timed out | Model too large for the hardware; CV very long | Increase timeout, use a smaller model |
 | AVZ-LLM-205 | Analysis failed for one candidate | Wraps any per-CV failure during scoring | See the message; other candidates are unaffected |
+| AVZ-LLM-206 | LLM API authentication failed | Wrong/expired Anthropic API key | Check the key in Technical Settings (console.anthropic.com) |
+| AVZ-LLM-207 | LLM API rate limit exceeded | Too many parallel requests for your API tier | Lower concurrency in Technical Settings; retry later |
 
 ## MAIL 3xx — SMTP / notifications
 

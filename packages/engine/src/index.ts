@@ -6,14 +6,15 @@ export { extractText, SUPPORTED_EXTENSIONS } from './parsing/extract';
 export { extractContact, type ContactInfo } from './parsing/contact';
 export { matchKeywords, parseKeywordList } from './pipeline/keywords';
 export { runScreening, scanSource } from './pipeline/screening';
-export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/ollama';
+export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/router';
+export { DEFAULT_ANTHROPIC_MODEL } from './llm/anthropic';
 export { sendDecisionEmails, testSmtpConnection, type EmailKind } from './mail/mailer';
 export { exportApplications, exportCandidates, exportAudit } from './export/xlsx';
 export { Logger, defaultLogger } from './util/logger';
 
 import { AppError } from './errors';
 import { scanSource } from './pipeline/screening';
-import { testLlmConnection } from './llm/ollama';
+import { testLlmConnection } from './llm/router';
 import { testSmtpConnection } from './mail/mailer';
 import type { ConnectionTestResult, SettingsProfile } from './types';
 
@@ -32,7 +33,8 @@ export async function testConnections(profile: SettingsProfile): Promise<Connect
 
   try {
     await testLlmConnection(profile.llm);
-    results.push({ target: 'llm', ok: true, message: `Ollama reachable, model "${profile.llm.model}" available` });
+    const providerName = profile.llm.provider === 'anthropic' ? 'Claude API' : 'Ollama';
+    results.push({ target: 'llm', ok: true, message: `${providerName} reachable, model "${profile.llm.model}" available` });
   } catch (err) {
     const e = err instanceof AppError ? err : new AppError('AVZ-LLM-201', profile.llm.baseUrl, String(err));
     results.push({ target: 'llm', ok: false, message: e.message, errorCode: e.code });

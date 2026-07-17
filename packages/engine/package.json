@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.1",
     "better-sqlite3": "^12.4.1",
     "exceljs": "^4.4.0",
     "mammoth": "^1.8.0",

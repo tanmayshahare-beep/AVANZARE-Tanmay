@@ -19,6 +19,8 @@ export const ERROR_CODES = {
   'AVZ-LLM-203': 'LLM returned a response that could not be parsed as {score, reasoning}',
   'AVZ-LLM-204': 'LLM request timed out',
   'AVZ-LLM-205': 'LLM analysis failed for a candidate',
+  'AVZ-LLM-206': 'LLM API authentication failed (check the API key)',
+  'AVZ-LLM-207': 'LLM API rate limit exceeded — retry later or lower concurrency',
 
   // MAIL 3xx — SMTP / notifications
   'AVZ-MAIL-301': 'Could not connect to SMTP server',

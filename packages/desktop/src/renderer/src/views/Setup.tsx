@@ -14,7 +14,7 @@ function emptyProfile(): SettingsProfile {
     name: '',
     useAutomatically: false,
     source: { kind: 'local', path: '' },
-    llm: { baseUrl: 'http://localhost:11434', model: '', timeoutMs: 120000 },
+    llm: { provider: 'ollama', baseUrl: 'http://localhost:11434', model: '', apiKey: '', timeoutMs: 120000 },
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
     templates: {
       rejectionSubject: 'Your application for {{job_title}}',
@@ -128,25 +128,49 @@ export default function Setup({ firstRun, current, onUse, notify }: Props) {
           </label>
         </div>
 
-        <h3>LLM (Ollama)</h3>
+        <h3>LLM</h3>
         <div className="grid3">
-          <label className="field"><span>Ollama base URL — local or another machine</span>
-            <input type="url" value={p.llm.baseUrl} placeholder="http://localhost:11434"
-              onChange={e => set({ llm: { ...p.llm, baseUrl: e.target.value } })} />
+          <label className="field"><span>Provider</span>
+            <select value={p.llm.provider}
+              onChange={e => {
+                const provider = e.target.value as 'ollama' | 'anthropic';
+                setModels([]);
+                set({ llm: { ...p.llm, provider, model: provider === 'anthropic' ? 'claude-opus-4-8' : '' } });
+              }}>
+              <option value="ollama">Ollama — local / self-hosted (free, private)</option>
+              <option value="anthropic">Claude API — Anthropic (uses your API credits)</option>
+            </select>
           </label>
+          {p.llm.provider === 'ollama' ? (
+            <label className="field"><span>Ollama base URL — local or another machine</span>
+              <input type="url" value={p.llm.baseUrl} placeholder="http://localhost:11434"
+                onChange={e => set({ llm: { ...p.llm, baseUrl: e.target.value } })} />
+            </label>
+          ) : (
+            <label className="field"><span>API key (console.anthropic.com)</span>
+              <input type="password" value={p.llm.apiKey} placeholder="sk-ant-…"
+                onChange={e => set({ llm: { ...p.llm, apiKey: e.target.value } })} />
+            </label>
+          )}
           <label className="field"><span>Model</span>
             {models.length ? (
               <select value={p.llm.model} onChange={e => set({ llm: { ...p.llm, model: e.target.value } })}>
                 {models.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             ) : (
-              <input type="text" value={p.llm.model} placeholder="e.g. llama3.1"
+              <input type="text" value={p.llm.model}
+                placeholder={p.llm.provider === 'anthropic' ? 'claude-opus-4-8' : 'e.g. llama3.1'}
                 onChange={e => set({ llm: { ...p.llm, model: e.target.value } })} />
             )}
           </label>
-          <label className="field"><span>&nbsp;</span>
-            <button className="btn" onClick={loadModels} disabled={busy}>Load models</button>
-          </label>
+        </div>
+        <div className="btn-row" style={{ marginTop: 8 }}>
+          <button className="btn" onClick={loadModels} disabled={busy}>Load models</button>
+          {p.llm.provider === 'anthropic' && (
+            <span className="hint" style={{ margin: 0 }}>
+              CV contents are sent to Anthropic's API for scoring — the key is stored encrypted on this machine.
+            </span>
+          )}
         </div>
 
         <h3>Email (SMTP)</h3>

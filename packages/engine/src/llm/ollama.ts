@@ -1,7 +1,5 @@
-import { AppError, asAppError } from '../errors';
-import type { Database } from '../db/database';
-import type { LlmSettings, LlmVerdict, ScreeningProgress } from '../types';
-import { mapLimit } from '../util/concurrency';
+import { AppError } from '../errors';
+import type { LlmSettings } from '../types';
 
 const VERDICT_SCHEMA = {
   type: 'object',
@@ -39,19 +37,19 @@ async function ollamaFetch(settings: LlmSettings, apiPath: string, body?: unknow
 }
 
 /** List model names available on the endpoint (populates the setup dropdown). */
-export async function listModels(settings: LlmSettings): Promise<string[]> {
+export async function ollamaListModels(settings: LlmSettings): Promise<string[]> {
   const data = await ollamaFetch(settings, '/api/tags') as { models?: { name: string }[] };
   return (data.models ?? []).map(m => m.name);
 }
 
-export async function testLlmConnection(settings: LlmSettings): Promise<void> {
-  const models = await listModels(settings);
+export async function ollamaTestConnection(settings: LlmSettings): Promise<void> {
+  const models = await ollamaListModels(settings);
   if (settings.model && !models.includes(settings.model)) {
     throw new AppError('AVZ-LLM-202', settings.baseUrl, `model "${settings.model}" not in [${models.join(', ')}]`);
   }
 }
 
-export async function scoreCv(
+export async function ollamaScoreCv(
   settings: LlmSettings,
   jobTitle: string,
   jobPrompt: string,
@@ -86,40 +84,4 @@ export async function scoreCv(
   } catch (err) {
     throw new AppError('AVZ-LLM-203', settings.baseUrl, `raw response: ${content.slice(0, 300)}`, err);
   }
-}
-
-/**
- * Score every given application against the job prompt. Individual failures
- * become per-candidate errors (AVZ-LLM-205 context), not a run abort.
- */
-export async function runLlmAnalysis(
-  jobId: number,
-  applicationIds: number[],
-  settings: LlmSettings,
-  db: Database,
-  concurrency: number,
-  onProgress?: (p: ScreeningProgress) => void,
-): Promise<{ verdicts: LlmVerdict[]; failures: { applicationId: number; code: string; message: string }[] }> {
-  const job = db.getJob(jobId);
-  const verdicts: LlmVerdict[] = [];
-  const failures: { applicationId: number; code: string; message: string }[] = [];
-  let done = 0;
-
-  await mapLimit(applicationIds, Math.max(1, Math.min(concurrency, 2)), async (appId) => {
-    try {
-      const cvText = db.getCvText(appId);
-      const { score, reasoning } = await scoreCv(settings, job.title, job.prompt, cvText);
-      db.setVerdict(appId, score, reasoning);
-      db.setApplicationStatus(appId, 'in_llm');
-      verdicts.push({ applicationId: appId, score, reasoning });
-    } catch (err) {
-      const appErr = asAppError(err, 'AVZ-LLM-205', `application ${appId}`);
-      failures.push({ applicationId: appId, code: appErr.code, message: appErr.message });
-    } finally {
-      done += 1;
-      onProgress?.({ phase: 'analyzing', done, total: applicationIds.length });
-    }
-  });
-
-  return { verdicts, failures };
 }

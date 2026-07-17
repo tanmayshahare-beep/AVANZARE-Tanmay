@@ -11,9 +11,13 @@ export interface SmtpSettings {
 }
 
 export interface LlmSettings {
-  /** e.g. http://localhost:11434 or http://192.168.1.50:11434 */
+  /** Local/self-hosted Ollama, or the Claude API for users with an Anthropic key. */
+  provider: 'ollama' | 'anthropic';
+  /** Ollama only — e.g. http://localhost:11434 or http://192.168.1.50:11434 */
   baseUrl: string;
   model: string;
+  /** Anthropic only — API key from console.anthropic.com. Encrypted at rest by the app. */
+  apiKey: string;
   /** Per-request timeout in ms. */
   timeoutMs: number;
 }

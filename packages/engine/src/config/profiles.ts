@@ -23,7 +23,7 @@ export function defaultProfile(name = ''): SettingsProfile {
     name,
     useAutomatically: false,
     source: { kind: 'local', path: '' },
-    llm: { baseUrl: 'http://localhost:11434', model: '', timeoutMs: 120_000 },
+    llm: { provider: 'ollama', baseUrl: 'http://localhost:11434', model: '', apiKey: '', timeoutMs: 120_000 },
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
     templates: { ...DEFAULT_TEMPLATES },
     concurrency: 4,
@@ -37,7 +37,11 @@ export function validateProfile(p: SettingsProfile): void {
   if (!p.name.trim()) problems.push('profile name is empty');
   if (p.source.kind === 'local' && !p.source.path.trim()) problems.push('CV source folder is not set');
   if (p.source.kind === 'cloud') problems.push('cloud sources are not yet supported (AVZ-SRC-403)');
-  if (!/^https?:\/\//.test(p.llm.baseUrl)) problems.push('LLM base URL must start with http:// or https://');
+  if (p.llm.provider === 'anthropic') {
+    if (!p.llm.apiKey.trim()) problems.push('Anthropic API key is not set');
+  } else if (!/^https?:\/\//.test(p.llm.baseUrl)) {
+    problems.push('LLM base URL must start with http:// or https://');
+  }
   if (!p.llm.model.trim()) problems.push('LLM model is not selected');
   if (!p.smtp.host.trim()) problems.push('SMTP host is not set');
   if (!Number.isInteger(p.smtp.port) || p.smtp.port < 1 || p.smtp.port > 65535) problems.push('SMTP port is invalid');
