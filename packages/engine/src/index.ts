@@ -6,6 +6,10 @@ export { extractText, SUPPORTED_EXTENSIONS } from './parsing/extract';
 export { extractContact, type ContactInfo } from './parsing/contact';
 export { matchKeywords, parseKeywordList, buildSynonymMap } from './pipeline/keywords';
 export { runScreening, scanSource, type ScreeningOptions } from './pipeline/screening';
+export {
+  runScreeningBatch,
+  type BatchTaskInput, type BatchTaskProgress, type BatchTaskResult,
+} from './pipeline/batch';
 export { testImapConnection, fetchImapCvs, type ImapFetchResult } from './sources/imap';
 export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/router';
 export { DEFAULT_ANTHROPIC_MODEL } from './llm/anthropic';

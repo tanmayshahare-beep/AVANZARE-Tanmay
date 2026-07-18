@@ -1,5 +1,30 @@
-import { useState } from 'react';
-import type { JobCriteria, KeywordSynonym, SettingsProfile, WeightedKeyword } from '@avanzare/engine';
+import { useState, type ReactNode } from 'react';
+import type { JobCriteria, KeywordSynonym, ScreeningInput, SettingsProfile, WeightedKeyword } from '@avanzare/engine';
+
+/**
+ * Assemble the engine's ScreeningInput from a technical profile (connection/runtime
+ * config) and a job definition (keywords/prompt). Shared by the single-run wizard and
+ * the batch runner so both build the input identically.
+ */
+export function buildScreeningInput(profile: SettingsProfile, def: JobDef): ScreeningInput {
+  return {
+    jobTitle: def.title,
+    prompt: def.prompt,
+    mandatoryKeywords: def.mandatory,
+    optionalKeywords: def.optional,
+    keywordSynonyms: def.keywordSynonyms,
+    criteria: def.criteria,
+    targetAcceptances: def.targetAcceptances,
+    sourcePath: profile.source.path,
+    ...(profile.source.kind === 'email' ? {
+      emailImap: profile.source.imap,
+      emailDateFrom: def.emailDateFrom,
+      emailDateTo: def.emailDateTo,
+    } : {}),
+    ocr: profile.ocr,
+    concurrency: profile.concurrency,
+  };
+}
 
 export interface JobDef {
   title: string;
@@ -22,6 +47,12 @@ interface Props {
   profile: SettingsProfile;
   initial: JobDef | null;
   onStart: (def: JobDef) => void;
+  /** Override the panel heading (e.g. "Add task to batch"). */
+  heading?: string;
+  /** Override the submit-button label (e.g. "Save task"). */
+  submitLabel?: string;
+  /** Optional extra content rendered above the job title (e.g. a profile picker in batch mode). */
+  children?: ReactNode;
 }
 
 const PROMPT_NUDGE = 200;
@@ -30,7 +61,7 @@ function parseKeywords(s: string): string[] {
   return [...new Set(s.split(/[,\n;]+/).map(x => x.trim()).filter(Boolean))];
 }
 
-export default function Job({ profile, initial, onStart }: Props) {
+export default function Job({ profile, initial, onStart, heading, submitLabel, children }: Props) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [mandatory, setMandatory] = useState(initial?.mandatory.map(k => k.keyword).join(', ') ?? '');
   const [optional, setOptional] = useState(initial?.optional.join(', ') ?? '');
@@ -85,7 +116,8 @@ export default function Job({ profile, initial, onStart }: Props) {
 
   return (
     <div className="panel">
-      <h2>New screening</h2>
+      <h2>{heading ?? 'New screening'}</h2>
+      {children}
       {isEmail ? (
         <>
           <p className="hint">
@@ -224,7 +256,7 @@ export default function Job({ profile, initial, onStart }: Props) {
             ...(isEmail ? { emailDateFrom: dateFrom, emailDateTo: dateTo } : {}),
             prompt: prompt.trim(),
           })}>
-          Start parsing
+          {submitLabel ?? 'Start parsing'}
         </button>
         {!ready && <span className="muted">Job title, at least one mandatory keyword and a description are required.</span>}
       </div>

@@ -1,10 +1,11 @@
 import type {
-  ApplicationRow, AuditEntry, CandidateHistoryEntry, CandidateSearchHit, ConnectionTestResult, EmailSendReport,
+  ApplicationRow, AuditEntry, BatchTaskProgress, BatchTaskResult, CandidateHistoryEntry, CandidateSearchHit,
+  ConnectionTestResult, EmailSendReport,
   EmailTemplates, JobMetrics, LlmSettings,
   ScreeningInput, ScreeningProgress, ScreeningResult, SettingsProfile, Tier,
 } from '@avanzare/engine';
 
-export type { CandidateHistoryEntry, AuditEntry, JobMetrics, EmailTemplates, CandidateSearchHit };
+export type { CandidateHistoryEntry, AuditEntry, JobMetrics, EmailTemplates, CandidateSearchHit, BatchTaskProgress, BatchTaskResult };
 
 export type Envelope<T> =
   | { ok: true; data: T }
@@ -33,6 +34,8 @@ interface AvzApi {
   testConnections(p: SettingsProfile): Promise<Envelope<ConnectionTestResult[]>>;
   listModels(llm: LlmSettings): Promise<Envelope<string[]>>;
   runScreening(input: ScreeningInput): Promise<Envelope<ScreeningResult>>;
+  runBatch(payload: { tasks: { taskId: string; input: ScreeningInput }[]; maxConcurrent: number }):
+    Promise<Envelope<BatchTaskResult[]>>;
   setTier(ids: number[], tier: Tier): Promise<Envelope<void>>;
   analyze(payload: { jobId: number; applicationIds: number[]; profile: SettingsProfile }):
     Promise<Envelope<{ rows: ApplicationRow[]; failures: { applicationId: number; code: string; message: string }[] }>>;
@@ -68,6 +71,8 @@ interface AvzApi {
   openFile(path: string): Promise<Envelope<void>>;
   pickFolder(): Promise<Envelope<string | null>>;
   onProgress(cb: (p: ScreeningProgress) => void): () => void;
+  onBatchProgress(cb: (p: BatchTaskProgress) => void): () => void;
+  onBatchDone(cb: (r: BatchTaskResult) => void): () => void;
 }
 
 export const avz = (window as unknown as { avz: AvzApi }).avz;

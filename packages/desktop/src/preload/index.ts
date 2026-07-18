@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('avz', {
   testConnections: (p: unknown) => invoke('connections:test', p),
   listModels: (llm: unknown) => invoke('llm:models', llm),
   runScreening: (input: unknown) => invoke('screening:run', input),
+  runBatch: (payload: unknown) => invoke('batch:run', payload),
   setTier: (ids: number[], tier: string) => invoke('applications:setTier', ids, tier),
   analyze: (payload: unknown) => invoke('llm:analyze', payload),
   sendEmails: (payload: unknown) => invoke('emails:send', payload),
@@ -35,5 +36,15 @@ contextBridge.exposeInMainWorld('avz', {
     const listener = (_e: unknown, payload: unknown) => cb(payload);
     ipcRenderer.on('avz:progress', listener);
     return () => { ipcRenderer.removeListener('avz:progress', listener); };
+  },
+  onBatchProgress: (cb: (p: unknown) => void) => {
+    const listener = (_e: unknown, payload: unknown) => cb(payload);
+    ipcRenderer.on('avz:batch-progress', listener);
+    return () => { ipcRenderer.removeListener('avz:batch-progress', listener); };
+  },
+  onBatchDone: (cb: (r: unknown) => void) => {
+    const listener = (_e: unknown, payload: unknown) => cb(payload);
+    ipcRenderer.on('avz:batch-done', listener);
+    return () => { ipcRenderer.removeListener('avz:batch-done', listener); };
   },
 });

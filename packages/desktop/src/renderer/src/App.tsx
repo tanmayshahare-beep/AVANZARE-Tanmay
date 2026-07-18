@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ApplicationRow, ScreeningResult, SettingsProfile } from '@avanzare/engine';
 import { avz, call } from './api';
 import Setup from './views/Setup';
-import Job, { type JobDef } from './views/Job';
+import Job, { buildScreeningInput, type JobDef } from './views/Job';
 import Running from './views/Running';
 import Rejection from './views/Rejection';
 import Results from './views/Results';
 import LastResults from './views/LastResults';
 import Candidates from './views/Candidates';
 import Audit from './views/Audit';
+import Batch, { type BatchTask } from './views/Batch';
 
-type Tab = 'screening' | 'results' | 'candidates' | 'audit' | 'settings';
+type Tab = 'screening' | 'batch' | 'results' | 'candidates' | 'audit' | 'settings';
 type WizardStep = 'job' | 'running' | 'rejection' | 'analyzing' | 'results';
 
 export interface Toast { text: string; kind: 'error' | 'info' }
@@ -41,6 +42,11 @@ export default function App() {
   const [results, setResults] = useState<ApplicationRow[]>([]);
   const [llmFailures, setLlmFailures] = useState<{ applicationId: number; code: string; message: string }[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
+  // Batch (multitasking) state — lives here so it survives tab switches and can hand a
+  // completed task to the review wizard below.
+  const [batchTasks, setBatchTasks] = useState<BatchTask[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchMax, setBatchMax] = useState(2);
 
   const notify = useCallback((text: string, kind: Toast['kind'] = 'error') => {
     setToast({ text, kind });
@@ -66,24 +72,61 @@ export default function App() {
     if (!profile) return;
     setJob(def);
     setWizard('running');
-    const res = await call(avz.runScreening({
-      jobTitle: def.title,
-      prompt: def.prompt,
-      mandatoryKeywords: def.mandatory,
-      optionalKeywords: def.optional,
-      keywordSynonyms: def.keywordSynonyms,
-      criteria: def.criteria,
-      targetAcceptances: def.targetAcceptances,
-      sourcePath: profile.source.path,
-      ...(profile.source.kind === 'email' ? {
-        emailImap: profile.source.imap,
-        emailDateFrom: def.emailDateFrom,
-        emailDateTo: def.emailDateTo,
-      } : {}),
-      ocr: profile.ocr,
-      concurrency: profile.concurrency,
-    }), (m) => { notify(m); setWizard('job'); });
+    const res = await call(avz.runScreening(buildScreeningInput(profile, def)),
+      (m) => { notify(m); setWizard('job'); });
     if (res) { setScreening(res); setWizard('rejection'); }
+  };
+
+  // ---- Batch (multitasking) ----
+  // Per-task progress and completion arrive on their own IPC channels while several
+  // screenings run concurrently, so each task row updates independently.
+  useEffect(() => {
+    const offP = avz.onBatchProgress(({ taskId, progress }) => {
+      setBatchTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'running', progress } : t));
+    });
+    const offD = avz.onBatchDone((r) => {
+      setBatchTasks(prev => prev.map(t => {
+        if (t.id !== r.taskId) return t;
+        return r.ok
+          ? { ...t, status: 'done', result: r.result, progress: undefined, error: undefined }
+          : { ...t, status: 'error', error: r.error, progress: undefined };
+      }));
+    });
+    return () => { offP(); offD(); };
+  }, []);
+
+  const addTask = (p: SettingsProfile, def: JobDef) =>
+    setBatchTasks(prev => [...prev, { id: crypto.randomUUID(), profile: p, def, status: 'queued' }]);
+  const updateTask = (id: string, p: SettingsProfile, def: JobDef) =>
+    setBatchTasks(prev => prev.map(t => t.id === id ? { ...t, profile: p, def } : t));
+  const removeTask = (id: string) => setBatchTasks(prev => prev.filter(t => t.id !== id));
+  const clearFinished = () =>
+    setBatchTasks(prev => prev.filter(t => t.status === 'queued' || t.status === 'running'));
+
+  const runAll = async () => {
+    const toRun = batchTasks.filter(t => t.status === 'queued' || t.status === 'error');
+    if (!toRun.length) return;
+    const ids = new Set(toRun.map(t => t.id));
+    setBatchTasks(prev => prev.map(t => ids.has(t.id)
+      ? { ...t, status: 'running', progress: undefined, result: undefined, error: undefined } : t));
+    setBatchRunning(true);
+    // The promise resolves once every task settles; per-task UI is driven by the events above.
+    await call(avz.runBatch({
+      tasks: toRun.map(t => ({ taskId: t.id, input: buildScreeningInput(t.profile, t.def) })),
+      maxConcurrent: batchMax,
+    }), notify);
+    setBatchRunning(false);
+  };
+
+  /** Hand a finished batch task to the normal review wizard, driven by that task's own profile. */
+  const reviewTask = (task: BatchTask) => {
+    if (!task.result) return;
+    setProfile(task.profile);
+    setJob(task.def);
+    setScreening(task.result);
+    setResults([]); setLlmFailures([]);
+    setWizard('rejection');
+    setTab('screening');
   };
 
   /** After the rejection screen: rescue unchecked, then run LLM over accepted + rescued. */
@@ -120,6 +163,8 @@ export default function App() {
         <span className="brand">AVANZARE</span>
         <button className={`tab ${tab === 'screening' ? 'active' : ''}`} disabled={!profile}
           onClick={() => setTab('screening')}>Screening</button>
+        <button className={`tab ${tab === 'batch' ? 'active' : ''}`}
+          onClick={() => setTab('batch')}>Batch{batchRunning ? ' ●' : ''}</button>
         <button className={`tab ${tab === 'results' ? 'active' : ''}`}
           onClick={() => setTab('results')}>Results</button>
         <button className={`tab ${tab === 'candidates' ? 'active' : ''}`} disabled={!profile}
@@ -153,6 +198,12 @@ export default function App() {
                 notify={notify} onDone={restart} />
             )}
           </>
+        )}
+
+        {tab === 'batch' && (
+          <Batch tasks={batchTasks} running={batchRunning} maxConcurrent={batchMax}
+            onMaxConcurrent={setBatchMax} onAdd={addTask} onUpdate={updateTask} onRemove={removeTask}
+            onRunAll={runAll} onReview={reviewTask} onClearFinished={clearFinished} notify={notify} />
         )}
 
         {tab === 'results' && <LastResults exportDir={profile?.exportDir} notify={notify} />}

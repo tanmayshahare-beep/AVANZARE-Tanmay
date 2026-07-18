@@ -80,6 +80,10 @@ body {
   margin-bottom: 16px;
 }
 .panel h2 { margin: 0 0 4px; font-size: 17px; }
+/* Batch view: reusable flex spacer + a chip for the profile name inside task cards. */
+.btn-row .spacer { flex: 1; }
+.batch-task { padding: 14px 20px; }
+.batch-task .profile-chip { color: var(--muted); font-size: 12px; border: 1px solid var(--border); border-radius: 99px; padding: 1px 8px; }
 .panel h3 { margin: 16px 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; }
 

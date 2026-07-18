@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   AppError, Database, Logger, ProfileStore,
   exportApplications, exportAudit, exportCandidates,
-  listModels, runLlmAnalysis, runScreening,
+  listModels, runLlmAnalysis, runScreening, runScreeningBatch,
   sendDecisionEmails, testConnections,
   type EmailKind, type EmailTemplates, type ScreeningInput, type SettingsProfile, type Tier,
 } from '@avanzare/engine';
@@ -88,6 +88,23 @@ function registerIpc(): void {
     // Email attachments are downloaded here and become each application's cv_path.
     emailDownloadDir: path.join(app.getPath('userData'), 'email-cvs', String(Date.now())),
   }));
+
+  // Multitasking: run several screening tasks concurrently. Per-task progress and
+  // completion are pushed on dedicated channels so the Batch UI can update each row
+  // independently; the promise resolves with every task's outcome once all settle.
+  handle('batch:run', (payload: { tasks: { taskId: string; input: ScreeningInput }[]; maxConcurrent: number }) => {
+    const tasks = payload.tasks.map(t => ({
+      taskId: t.taskId,
+      input: t.input,
+      // A per-task folder (id-suffixed) so concurrent email sources never share a download dir.
+      emailDownloadDir: path.join(app.getPath('userData'), 'email-cvs', `${Date.now()}-${t.taskId}`),
+    }));
+    return runScreeningBatch(
+      tasks, db, payload.maxConcurrent,
+      (p) => win?.webContents.send('avz:batch-progress', p),
+      (r) => win?.webContents.send('avz:batch-done', r),
+    );
+  });
 
   handle('applications:setTier', (ids: number[], tier: Tier) => {
     for (const id of ids) db.setApplicationTier(id, tier);
