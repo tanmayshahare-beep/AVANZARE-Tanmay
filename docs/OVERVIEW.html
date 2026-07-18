@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AVANZARE — Overview &amp; Tech Map</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #f6f7f9; }
+  @media (prefers-color-scheme: dark) { html, body { background: #0d1217; } }
+  img { max-width: 100%; }
+</style>
+</head>
+<body>
+<style>
+  :root {
+    --page: #f6f7f9;
+    --card: #ffffff;
+    --card-2: #fbfcfd;
+    --ink: #141a1f;
+    --ink-soft: #47535d;
+    --ink-faint: #6c7a85;
+    --line: #e2e7ec;
+    --line-strong: #cfd6dd;
+    --accent: #0f8a94;
+    --accent-ink: #0b6b73;
+    --accent-wash: #e6f4f5;
+    --ok: #2f9e5f;
+    --warn: #b5792a;
+    --danger: #cf4257;
+    --chip-bg: #eef2f5;
+    --chip-ink: #33424d;
+    --chip-line: #dce3e9;
+    --shadow: 0 1px 2px rgba(20,26,31,.04), 0 6px 20px rgba(20,26,31,.05);
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d1217;
+      --card: #151d24;
+      --card-2: #131a20;
+      --ink: #dfe6ec;
+      --ink-soft: #a3b0ba;
+      --ink-faint: #7a8892;
+      --line: #232e37;
+      --line-strong: #2f3c46;
+      --accent: #34d0da;
+      --accent-ink: #6fe2ea;
+      --accent-wash: #10262a;
+      --ok: #52c98a;
+      --warn: #e0a54e;
+      --danger: #f0788a;
+      --chip-bg: #1b242c;
+      --chip-ink: #b9c6d0;
+      --chip-line: #2b3843;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="light"] {
+    --page: #f6f7f9; --card: #ffffff; --card-2: #fbfcfd; --ink: #141a1f; --ink-soft: #47535d;
+    --ink-faint: #6c7a85; --line: #e2e7ec; --line-strong: #cfd6dd; --accent: #0f8a94;
+    --accent-ink: #0b6b73; --accent-wash: #e6f4f5; --ok: #2f9e5f; --warn: #b5792a; --danger: #cf4257;
+    --chip-bg: #eef2f5; --chip-ink: #33424d; --chip-line: #dce3e9;
+    --shadow: 0 1px 2px rgba(20,26,31,.04), 0 6px 20px rgba(20,26,31,.05);
+  }
+  :root[data-theme="dark"] {
+    --page: #0d1217; --card: #151d24; --card-2: #131a20; --ink: #dfe6ec; --ink-soft: #a3b0ba;
+    --ink-faint: #7a8892; --line: #232e37; --line-strong: #2f3c46; --accent: #34d0da;
+    --accent-ink: #6fe2ea; --accent-wash: #10262a; --ok: #52c98a; --warn: #e0a54e; --danger: #f0788a;
+    --chip-bg: #1b242c; --chip-ink: #b9c6d0; --chip-line: #2b3843;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.28);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .wrap {
+    font-family: var(--sans);
+    background: var(--page);
+    color: var(--ink);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    padding: clamp(20px, 5vw, 64px) clamp(16px, 5vw, 40px) 96px;
+  }
+  .col { max-width: 940px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(38px, 7vw, 66px);
+    line-height: .98;
+    letter-spacing: -.03em;
+    font-weight: 700;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lede {
+    font-size: clamp(16px, 2.2vw, 19px);
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 18px 0 0;
+  }
+  .metarow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 11px;
+  }
+
+  section { margin-top: clamp(48px, 8vw, 84px); }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: .1em;
+  }
+  h2 {
+    font-size: clamp(22px, 3.4vw, 30px);
+    letter-spacing: -.02em;
+    font-weight: 680;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .sec-sub { color: var(--ink-soft); max-width: 64ch; margin: 10px 0 26px; }
+
+  /* architecture split */
+  .arch { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 720px) { .arch { grid-template-columns: 1fr auto 1fr; align-items: stretch; } }
+  .arch-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .arch-card h3 { margin: 0 0 4px; font-size: 16px; letter-spacing: -.01em; }
+  .arch-card .role { font-family: var(--mono); font-size: 11.5px; color: var(--accent-ink); text-transform: uppercase; letter-spacing: .1em; }
+  .arch-card p { margin: 10px 0 0; font-size: 14px; color: var(--ink-soft); }
+  .arch-link {
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+    padding: 8px 4px; white-space: nowrap;
+  }
+  .arch-link span { border: 1px dashed var(--line-strong); border-radius: 999px; padding: 6px 12px; }
+
+  /* pipeline */
+  .pipe { position: relative; margin-top: 8px; }
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 18px;
+    padding-bottom: 26px;
+  }
+  .stage::before {
+    content: "";
+    position: absolute;
+    left: 21px; top: 6px; bottom: -6px;
+    width: 2px;
+    background: linear-gradient(var(--line-strong), var(--line));
+  }
+  .stage:last-child::before { display: none; }
+  .stage-num {
+    position: relative;
+    z-index: 1;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-weight: 700; font-size: 16px;
+    color: var(--accent-ink);
+    background: var(--accent-wash);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+  }
+  .stage-body {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .stage-body h3 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+  .stage-loc { font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint); }
+  .stage-body p { margin: 8px 0 0; font-size: 14.5px; color: var(--ink-soft); }
+  .branch {
+    margin-top: 12px;
+    border-left: 3px solid var(--warn);
+    background: var(--card-2);
+    border-radius: 0 10px 10px 0;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .branch b { color: var(--ink); }
+
+  /* stacks / chips */
+  .stack { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--chip-ink);
+    background: var(--chip-bg);
+    border: 1px solid var(--chip-line);
+    border-radius: 7px;
+    padding: 3px 9px;
+    white-space: nowrap;
+  }
+  .chip.hl { color: var(--accent-ink); background: var(--accent-wash); border-color: var(--accent); }
+  .stack-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 16px 0 0;
+  }
+
+  /* feature catalog */
+  .group { margin-top: 34px; }
+  .group > h3 {
+    font-family: var(--mono);
+    font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .cards { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 16px; }
+  @media (min-width: 720px) { .cards { grid-template-columns: 1fr 1fr; } }
+  .feat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 17px 18px;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+  }
+  .feat h4 { margin: 0; font-size: 15.5px; letter-spacing: -.01em; }
+  .feat .loc { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 3px; word-break: break-all; }
+  .feat p { margin: 9px 0 0; font-size: 13.5px; color: var(--ink-soft); flex: 1; }
+
+  /* footnotes */
+  .notes { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 20px; }
+  @media (min-width: 720px) { .notes { grid-template-columns: 1fr 1fr; } }
+  .note {
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .note h4 { margin: 0 0 8px; font-size: 14px; }
+  .note h4 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+  .note ul { margin: 0; padding-left: 18px; }
+  .note li { font-size: 13.5px; color: var(--ink-soft); margin: 3px 0; }
+  .note code { font-family: var(--mono); font-size: 12px; background: var(--chip-bg); border: 1px solid var(--chip-line); border-radius: 5px; padding: 1px 5px; color: var(--chip-ink); }
+
+  hr.rule { border: none; border-top: 1px solid var(--line); margin: 0; }
+  .foot { margin-top: 64px; font-size: 12.5px; color: var(--ink-faint); font-family: var(--mono); }
+  a { color: var(--accent-ink); }
+</style>
+
+<div class="wrap">
+<div class="col">
+
+  <header>
+    <p class="eyebrow">Project overview · v0.2.0 · walkthrough &amp; tech map</p>
+    <h1>AVANZARE</h1>
+    <p class="lede">A recruiter's resume-screening desktop app. Point it at a folder of CVs or a hiring inbox, define the keywords that matter, let a local or cloud LLM rank the survivors against your job description — and send every decision with a human in the loop.</p>
+    <div class="metarow">
+      <span class="tag">Electron desktop</span>
+      <span class="tag">engine ⁄ UI split</span>
+      <span class="tag">local-first data</span>
+      <span class="tag">Ollama or Claude</span>
+      <span class="tag">SQLite talent pool</span>
+    </div>
+  </header>
+
+  <!-- ARCHITECTURE -->
+  <section>
+    <div class="sec-head"><span class="sec-num">A</span><h2>How it's built</h2></div>
+    <p class="sec-sub">Two packages in one npm-workspaces monorepo. All the real logic lives in a headless engine that knows nothing about Electron; the desktop app is a thin shell that drives it over IPC. That split is what makes a future background/server mode cheap.</p>
+    <div class="arch">
+      <div class="arch-card">
+        <span class="role">packages/engine</span>
+        <h3>Core engine</h3>
+        <p>Parsing, OCR, keyword filtering, contact extraction, LLM clients, SMTP, IMAP, SQLite, Excel export, error framework. Plain async functions over a database — no UI.</p>
+      </div>
+      <div class="arch-link"><span>IPC ⇄ envelope</span></div>
+      <div class="arch-card">
+        <span class="role">packages/desktop</span>
+        <h3>Electron shell</h3>
+        <p>Main process owns the engine and exposes it over typed IPC; a context-isolated preload bridge; a hand-built React UI with dark/light theming.</p>
+      </div>
+    </div>
+    <p class="stack-label">Core stack shared by everything</p>
+    <div class="stack">
+      <span class="chip hl">TypeScript 5.6</span>
+      <span class="chip hl">Electron 33.4</span>
+      <span class="chip">npm workspaces</span>
+      <span class="chip">electron-vite 3</span>
+      <span class="chip">Vite 6</span>
+      <span class="chip">React 18</span>
+      <span class="chip">better-sqlite3 12</span>
+      <span class="chip">Node fs / path / crypto</span>
+      <span class="chip">hand-rolled CSS (vars + data-theme)</span>
+    </div>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section>
+    <div class="sec-head"><span class="sec-num">B</span><h2>The workflow, stage by stage</h2></div>
+    <p class="sec-sub">A single screening run moves through six stages. Stages 3–6 are the pipeline; the two shaded steps are where you stay in control — rescuing near-misses and confirming every email. The <b>Batch</b> tab runs stages 1–3 for many jobs at once, then hands each finished job back to stage 4.</p>
+
+    <div class="pipe">
+      <div class="stage">
+        <div class="stage-num">1</div>
+        <div class="stage-body">
+          <h3>Technical Setup</h3>
+          <div class="stage-loc">views/Setup.tsx · config/profiles.ts</div>
+          <p>Before the app opens you pick a settings profile: CV source (local folder or IMAP inbox), the LLM provider &amp; endpoint, OCR, SMTP, email templates, export folder and concurrency. Save named profiles (one per client) and mark one "use automatically" to skip this next time. Passwords are encrypted on the machine.</p>
+          <div class="stack">
+            <span class="chip">JSON profile store</span>
+            <span class="chip hl">Electron safeStorage</span>
+            <span class="chip">Test-connections probes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-num">2</div>
+        <div class="stage-body">
+          <h3>Define the screening job</h3>
+          <div class="stage-loc">views/Job.tsx</div>
+          <p>Set the job title, mandatory keywords (each weighted 1–5), nice-to-have keywords, optional synonyms, requirement tags (certifications / experience range / publications), a hiring target, and the detailed job description the LLM will judge against. For an email source you also pick the date range to import.</p>
+          <div class="stack">
+            <span class="chip">React controlled forms</span>
+            <span class="chip">weighted-keyword model</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-num">3</div>
+        <div class="stage-body">
+          <h3>Parse &amp; keyword-screen</h3>
+          <div class="stage-loc">pipeline/screening.ts</div>
+          <p>Every CV is read to text, the applicant's name/email/phone are extracted and saved to the talent database, keywords are matched with word-boundary awareness, and each application is bucketed: <b>rejected</b> (missing a mandatory keyword), <b>mandatory-only</b>, or <b>mandatory + optional</b>. All of it is persisted, so nothing is re-parsed later.</p>
+          <div class="stack">
+            <span class="chip">pdfjs-dist 3</span>
+            <span class="chip">mammoth / word-extractor</span>
+            <span class="chip">tesseract.js (OCR fallback)</span>
+            <span class="chip">in-house mapLimit pool</span>
+            <span class="chip">SHA-256 CV hash</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-num">4</div>
+        <div class="stage-body">
+          <h3>Rejection review</h3>
+          <div class="stage-loc">views/Rejection.tsx</div>
+          <p>The applicants that failed the keyword filter appear in a table sorted by keyword score, best near-miss first. Every row starts <b>checked = will be rejected</b>. Uncheck anyone to rescue them into the LLM stage. Edit contact info inline, open a CV preview, see a candidate's cross-job history, and add internal notes.</p>
+          <div class="branch"><b>Human checkpoint.</b> Rejection emails are only sent after you approve a preview and a 30-second undo elapses — never automatically.</div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-num">5</div>
+        <div class="stage-body">
+          <h3>LLM analysis</h3>
+          <div class="stage-loc">llm/router.ts · llm/ollama.ts · llm/anthropic.ts</div>
+          <p>Accepted and rescued CVs are scored 0–100 against your job description, with formal-education assessment and a ✓/✗ verdict per requirement tag — returned as structured JSON, not prose, so results are reliable even with small local models.</p>
+          <div class="stack">
+            <span class="chip hl">Ollama HTTP API</span>
+            <span class="chip hl">@anthropic-ai/sdk</span>
+            <span class="chip">JSON-schema structured output</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="stage-num">6</div>
+        <div class="stage-body">
+          <h3>Results &amp; emails</h3>
+          <div class="stage-loc">views/Results.tsx · mail/mailer.ts</div>
+          <p>A ranked table by affinity score with tier, education, requirement verdicts and expandable reasoning. Every row starts <b>unchecked</b> — check the ones you want to advance. One button emails everyone: checked get the acceptance template, unchecked the rejection template.</p>
+          <div class="branch"><b>Human checkpoint.</b> Because everyone in the table is emailed, the send goes through the preview modal + hard confirmation + 30-second undo.</div>
+          <div class="stack">
+            <span class="chip">Nodemailer / SMTP</span>
+            <span class="chip">{{placeholder}} templates</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURE CATALOG -->
+  <section>
+    <div class="sec-head"><span class="sec-num">C</span><h2>Feature catalog — what powers each one</h2></div>
+    <p class="sec-sub">Every feature currently in the app, with the exact libraries and techniques that implement it. The mono line under each name is where it lives in the source.</p>
+
+    <div class="group">
+      <h3>Foundation &amp; shell</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Monorepo &amp; build</h4>
+          <div class="loc">package.json · electron.vite.config.ts</div>
+          <p>Two workspaces, one build. The engine is bundled into the main process via a Vite alias because electron-builder can't package workspace symlinks.</p>
+          <div class="stack"><span class="chip">npm workspaces</span><span class="chip">electron-vite 3</span><span class="chip">Vite 6</span><span class="chip">TypeScript 5.6</span></div>
+        </div>
+        <div class="feat">
+          <h4>Desktop shell &amp; IPC</h4>
+          <div class="loc">main/index.ts · preload/index.ts</div>
+          <p>Main process owns the engine; a context-isolated preload exposes a typed <code>window.avz</code>. Every handler returns a uniform <code>{ok,data|error}</code> envelope, so the UI never sees a thrown exception.</p>
+          <div class="stack"><span class="chip">Electron main</span><span class="chip">ipcMain / ipcRenderer</span><span class="chip">contextBridge</span></div>
+        </div>
+        <div class="feat">
+          <h4>React UI &amp; theming</h4>
+          <div class="loc">renderer/src/*.tsx · styles.css</div>
+          <p>A hand-built React UI — no component library. Dark/light theme via a <code>data-theme</code> attribute and CSS variables, following the OS by default and persisted in localStorage.</p>
+          <div class="stack"><span class="chip">React 18</span><span class="chip">plain CSS variables</span><span class="chip">localStorage</span></div>
+        </div>
+        <div class="feat">
+          <h4>Settings profiles &amp; secrets</h4>
+          <div class="loc">config/profiles.ts · main/index.ts</div>
+          <p>Connection/runtime config saved as named JSON profiles with validation. SMTP password, Anthropic API key and IMAP password are sealed with an <code>enc:</code> prefix before hitting disk.</p>
+          <div class="stack"><span class="chip">JSON file store</span><span class="chip hl">Electron safeStorage</span></div>
+        </div>
+        <div class="feat">
+          <h4>Error framework</h4>
+          <div class="loc">errors.ts · docs/ERROR_CODES.md</div>
+          <p>Every failure carries a stable <code>AVZ-MODULE-NNN</code> code plus the location it happened. Batch operations collect per-item errors and keep going, so one bad CV never aborts a run.</p>
+          <div class="stack"><span class="chip">custom AppError class</span><span class="chip">code registry</span></div>
+        </div>
+        <div class="feat">
+          <h4>Structured logging</h4>
+          <div class="loc">util/logger.ts</div>
+          <p>A tiny in-house JSON-lines logger (no pino) — every error line includes its code and location for support and audits.</p>
+          <div class="stack"><span class="chip">in-house JSON-lines logger</span><span class="chip">Node fs</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>CV sources</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Local folder source</h4>
+          <div class="loc">pipeline/screening.ts (scanSource)</div>
+          <p>Recursively scans a folder (subfolders included) for <code>.pdf / .docx / .doc</code>. Network drives and synced cloud folders work by pointing the path at them.</p>
+          <div class="stack"><span class="chip">Node fs (recursive walk)</span></div>
+        </div>
+        <div class="feat">
+          <h4>Email inbox source (IMAP)</h4>
+          <div class="loc">sources/imap.ts</div>
+          <p>Pulls applications straight from a hiring mailbox by date range, downloads each message's first CV attachment to a durable folder, captures the sender as a contact hint, and dedups by message-id so overlapping ranges never re-import.</p>
+          <div class="stack"><span class="chip hl">imapflow</span><span class="chip hl">mailparser</span><span class="chip">app-password auth</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Parsing &amp; OCR</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>PDF text extraction</h4>
+          <div class="loc">parsing/extract.ts</div>
+          <p>Reads PDFs page by page, reconstructing line breaks from <code>hasEOL</code> so the contact heuristics have real lines to work with. Uses the CJS legacy build for stable Node behaviour.</p>
+          <div class="stack"><span class="chip hl">pdfjs-dist 3 (legacy)</span></div>
+        </div>
+        <div class="feat">
+          <h4>Word extraction</h4>
+          <div class="loc">parsing/extract.ts</div>
+          <p>Modern <code>.docx</code> via mammoth's raw-text extraction; legacy <code>.doc</code> via word-extractor.</p>
+          <div class="stack"><span class="chip hl">mammoth</span><span class="chip hl">word-extractor</span></div>
+        </div>
+        <div class="feat">
+          <h4>OCR for scanned PDFs</h4>
+          <div class="loc">parsing/ocr.ts</div>
+          <p>When a PDF has no text layer and OCR is on, each page is rasterized at 2× and read by Tesseract. The heavy deps load lazily, so only scanned CVs pay for them.</p>
+          <div class="stack"><span class="chip hl">tesseract.js 7</span><span class="chip hl">@napi-rs/canvas</span><span class="chip">pdfjs rasterize</span><span class="chip">lazy dynamic import</span></div>
+        </div>
+        <div class="feat">
+          <h4>Contact extraction</h4>
+          <div class="loc">parsing/contact.ts</div>
+          <p>Heuristics pull the first email-like token, phone-like digit runs, and a plausible name near the top — with the IMAP sender's address/name overriding the guess when present.</p>
+          <div class="stack"><span class="chip">custom regex heuristics</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Screening &amp; matching</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Weighted keyword matching</h4>
+          <div class="loc">pipeline/keywords.ts</div>
+          <p>Case-insensitive matching with word boundaries applied only next to alphanumeric edges, so <code>java ≠ javascript</code> but <code>c++</code> and <code>.NET</code> match. Each mandatory keyword's 1–5 importance drives the keyword score.</p>
+          <div class="stack"><span class="chip">custom boundary regex</span><span class="chip">weighted scoring</span></div>
+        </div>
+        <div class="feat">
+          <h4>Keyword synonyms</h4>
+          <div class="loc">pipeline/keywords.ts (buildSynonymMap)</div>
+          <p>A keyword matches if it or any alias appears, but the canonical term is what's recorded — so "Amazon Web Services" counts for "AWS" without skewing tiers, scores or the dashboard.</p>
+          <div class="stack"><span class="chip">synonym map</span></div>
+        </div>
+        <div class="feat">
+          <h4>Concurrency pool</h4>
+          <div class="loc">util/concurrency.ts</div>
+          <p>A tiny bounded <code>mapLimit</code> (replacing p-queue) caps how many CVs process at once; the LLM stage is additionally capped at 2 in-flight requests.</p>
+          <div class="stack"><span class="chip">in-house mapLimit</span></div>
+        </div>
+        <div class="feat">
+          <h4>Batch / multitasking</h4>
+          <div class="loc">pipeline/batch.ts · views/Batch.tsx</div>
+          <p>Queue several screening tasks — each with its own profile and keywords — and run them concurrently. Per-task progress arrives on dedicated IPC channels; each finished task hands off to the normal review wizard.</p>
+          <div class="stack"><span class="chip">mapLimit over runScreening</span><span class="chip">per-task IPC channels</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Data, search &amp; audit</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Talent database</h4>
+          <div class="loc">db/database.ts</div>
+          <p>A persistent SQLite store — candidates (deduped by email), jobs, applications with tier/score/reasoning/text, and the email log — kept across runs so history survives.</p>
+          <div class="stack"><span class="chip hl">better-sqlite3 12</span><span class="chip">guarded ALTER-TABLE migrations</span></div>
+        </div>
+        <div class="feat">
+          <h4>Full-text talent search</h4>
+          <div class="loc">db/database.ts (app_fts)</div>
+          <p>Search every stored CV's text and candidate names across all past runs. Multi-word queries are AND-combined with a highlighted snippet per hit; degrades to LIKE if FTS5 is ever absent.</p>
+          <div class="stack"><span class="chip hl">SQLite FTS5</span><span class="chip">porter unicode61 tokenizer</span><span class="chip">LIKE fallback</span></div>
+        </div>
+        <div class="feat">
+          <h4>Audit trail</h4>
+          <div class="loc">db/database.ts (audit_log)</div>
+          <p>Every consequential action — runs, emails, contact edits, rescues, notes, purges — is logged with a timestamp and the OS user. Emails record the CV path and a SHA-256 content hash the decision was based on.</p>
+          <div class="stack"><span class="chip">SQLite table</span><span class="chip">Node os.userInfo()</span><span class="chip">node:crypto SHA-256</span></div>
+        </div>
+        <div class="feat">
+          <h4>Job performance dashboard</h4>
+          <div class="loc">views/Results.tsx · db.jobMetrics</div>
+          <p>Hiring funnel, per-keyword rejection impact, and optional-keyword-vs-score correlation — computed with SQL aggregates and drawn as hand-built tiles (no charting library).</p>
+          <div class="stack"><span class="chip">SQL aggregate queries</span><span class="chip">hand-rolled React/CSS tiles</span></div>
+        </div>
+        <div class="feat">
+          <h4>GDPR purge</h4>
+          <div class="loc">db/database.ts (purgeCandidate)</div>
+          <p>One button removes a candidate, their applications, email-log rows and FTS index entries — and deletes any app-downloaded CV copies, while leaving your own source folder untouched.</p>
+          <div class="stack"><span class="chip">cascading SQLite deletes</span><span class="chip">managed-file cleanup</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>LLM &amp; scoring</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Ollama provider</h4>
+          <div class="loc">llm/ollama.ts</div>
+          <p>Talks to <code>/api/chat</code> with <code>stream:false</code> and a JSON-schema <code>format</code>; model discovery via <code>/api/tags</code>. The base URL is a setting, so "LLM on another machine" is just a different URL.</p>
+          <div class="stack"><span class="chip hl">Ollama HTTP API</span><span class="chip">fetch</span><span class="chip">schema format output</span></div>
+        </div>
+        <div class="feat">
+          <h4>Claude provider</h4>
+          <div class="loc">llm/anthropic.ts</div>
+          <p>The official SDK, default model <code>claude-opus-4-8</code>, structured output via <code>output_config.format</code> with a prompt-for-JSON fallback. Typed SDK errors map onto AVZ-LLM codes.</p>
+          <div class="stack"><span class="chip hl">@anthropic-ai/sdk 0.112</span><span class="chip">json_schema output</span></div>
+        </div>
+        <div class="feat">
+          <h4>Provider router</h4>
+          <div class="loc">llm/router.ts</div>
+          <p>One interface over both providers, selected per profile — the pipeline never knows which LLM answered.</p>
+          <div class="stack"><span class="chip">dispatch layer</span></div>
+        </div>
+        <div class="feat">
+          <h4>100-point score + education</h4>
+          <div class="loc">llm/ollama.ts · llm/education.ts</div>
+          <p>A banded 0–100 rubric weighted toward role alignment, folding in a formal-education sub-score (10th/12th marks, university CGPA, highest degree). Sentinel values normalize to null client-side to satisfy strict schemas.</p>
+          <div class="stack"><span class="chip">shared JSON schema</span><span class="chip">client-side clamp/normalize</span></div>
+        </div>
+        <div class="feat">
+          <h4>Requirement tags</h4>
+          <div class="loc">llm/criteria.ts</div>
+          <p>Certifications, experience range and publications field — judged by the LLM rather than string matching, each returning a ✓/✗ verdict merged into both providers' schemas.</p>
+          <div class="stack"><span class="chip">LLM-assessed criteria</span><span class="chip">per-tag verdicts</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Review &amp; communication</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Email sending</h4>
+          <div class="loc">mail/mailer.ts</div>
+          <p>SMTP delivery with editable <code>{{name}}</code> / <code>{{job_title}}</code> templates, returning a per-recipient send report (sent / failed with code / no-email).</p>
+          <div class="stack"><span class="chip hl">Nodemailer</span><span class="chip">SMTP (TLS/STARTTLS)</span></div>
+        </div>
+        <div class="feat">
+          <h4>Preview modal &amp; 30s undo</h4>
+          <div class="loc">components/EmailPreviewModal.tsx</div>
+          <p>Every batch renders the first emails for review with per-send template tweaks, then a 30-second countdown with Cancel / Send-now before anything leaves — replacing a blunt confirm dialog.</p>
+          <div class="stack"><span class="chip">React + setTimeout countdown</span></div>
+        </div>
+        <div class="feat">
+          <h4>Inline editing &amp; history</h4>
+          <div class="loc">components/ContactCell.tsx · HistoryCell.tsx</div>
+          <p>Fix a heuristic's wrong name/email in place (audited), and expand a candidate's cross-job application history so nobody re-shortlists last month's reject.</p>
+          <div class="stack"><span class="chip">React cell components</span><span class="chip">audited edits</span></div>
+        </div>
+        <div class="feat">
+          <h4>Candidate comparison &amp; CV preview</h4>
+          <div class="loc">components/CompareModal.tsx · CvDrawer.tsx</div>
+          <p>Compare selected candidates in a transposed attribute table, and read a resume's parsed text in a side drawer without leaving the review.</p>
+          <div class="stack"><span class="chip">renderer-only React</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Export, ops &amp; packaging</h3>
+      <div class="cards">
+        <div class="feat">
+          <h4>Excel export</h4>
+          <div class="loc">export/xlsx.ts</div>
+          <p>Every table — rejections, results, candidates, audit — exports to <code>.xlsx</code> with full reasoning, tiers, scores, decision state and clickable CV hyperlinks.</p>
+          <div class="stack"><span class="chip hl">ExcelJS</span><span class="chip">native save dialog</span></div>
+        </div>
+        <div class="feat">
+          <h4>Persistent Results tab</h4>
+          <div class="loc">views/LastResults.tsx · db.lastJob</div>
+          <p>Any past run is read straight from the database and picked from a dropdown — switching tabs mid-run or restarting the app never loses it.</p>
+          <div class="stack"><span class="chip">SQLite-backed state</span></div>
+        </div>
+        <div class="feat">
+          <h4>Windows installer</h4>
+          <div class="loc">desktop package.json (build)</div>
+          <p>A one-command NSIS installer with a real setup wizard (choose install directory, per-user, no admin). Native <code>.node</code> binaries are unpacked from the asar.</p>
+          <div class="stack"><span class="chip hl">electron-builder 25</span><span class="chip">NSIS target</span><span class="chip">asarUnpack</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <section>
+    <div class="sec-head"><span class="sec-num">D</span><h2>Good to know</h2></div>
+    <div class="notes">
+      <div class="note">
+        <h4><span class="dot" style="background:var(--accent)"></span>Where your data lives</h4>
+        <ul>
+          <li><code>avanzare.sqlite</code> — candidates, jobs, applications, email log</li>
+          <li><code>profiles/*.json</code> — settings (passwords encrypted)</li>
+          <li><code>email-cvs/&lt;run&gt;/</code> — CVs downloaded from a mailbox</li>
+          <li><code>logs/avanzare.log</code> — JSON-lines log</li>
+          <li>All under <code>%APPDATA%/avanzare-desktop/</code></li>
+        </ul>
+      </div>
+      <div class="note">
+        <h4><span class="dot" style="background:var(--ok)"></span>Privacy &amp; compliance</h4>
+        <ul>
+          <li>Emails are never sent automatically — you confirm every batch</li>
+          <li>Ollama keeps CVs on your network; Claude sends CV text to Anthropic</li>
+          <li>Per-candidate purge honors erasure requests</li>
+          <li>The audit trail is built for GDPR / EEOC discovery</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h4><span class="dot" style="background:var(--warn)"></span>Known edges</h4>
+        <ul>
+          <li>Tesseract fetches language data from a CDN on first OCR use</li>
+          <li>Cloud sources (Drive/OneDrive/S3) are stubbed behind <code>AVZ-SRC-403</code></li>
+          <li>The batch queue is in-memory (runs persist; the queue list doesn't)</li>
+          <li>The installer is unsigned — SmartScreen shows a warning</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h4><span class="dot" style="background:var(--danger)"></span>Error codes at a glance</h4>
+        <ul>
+          <li><code>PARSE 1xx</code> — text extraction &amp; OCR</li>
+          <li><code>LLM 2xx</code> — Ollama / Claude analysis</li>
+          <li><code>MAIL 3xx</code> · <code>SRC 4xx</code> — email &amp; sources</li>
+          <li><code>CFG 5xx</code> · <code>DB 6xx</code> · <code>EXP 7xx</code> — config, database, export</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule" style="margin-top:56px">
+  <p class="foot">AVANZARE v0.2.0 · engine ⁄ desktop monorepo · full docs in docs/USER_GUIDE.md, ERROR_CODES.md, ARCHITECTURE.md</p>
+
+</div>
+</div>
+</body>
+</html>
