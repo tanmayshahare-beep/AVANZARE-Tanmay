@@ -1,6 +1,6 @@
 {
   "name": "@avanzare/engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AVANZARE core screening engine (headless-capable)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
