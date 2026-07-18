@@ -10,6 +10,8 @@ Documentation:
 - [User guide](docs/USER_GUIDE.md) — setup, workflow, settings profiles
 - [Error codes](docs/ERROR_CODES.md) — every `AVZ-*` code with cause and remedy
 - [Architecture](docs/ARCHITECTURE.md) — engine/UI split, data storage, privacy notes
+- [Scalability](docs/SCALABILITY.md) — multitasking, email intake, local/remote/API LLMs, how it scales
+- [Overview & tech map](docs/OVERVIEW.html) — visual workflow walkthrough + per-feature tech stack (open in a browser)
 
 ## Quick start (development)
 

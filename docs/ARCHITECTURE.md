@@ -1,5 +1,8 @@
 # AVANZARE — Architecture
 
+> For how these pieces scale — concurrent multitasking, email intake, and
+> local/remote/API LLM options — see [SCALABILITY.md](SCALABILITY.md).
+
 ## Engine / UI split
 
 The app is a two-package monorepo:
