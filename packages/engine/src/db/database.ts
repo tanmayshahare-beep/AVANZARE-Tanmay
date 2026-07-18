@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
   application_id INTEGER,
   detail TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS imported_emails (
+  message_id TEXT PRIMARY KEY,
+  mailbox TEXT,
+  imported_at TEXT NOT NULL
+);
 `;
 
 /** Columns added after the first release; applied to existing databases on open. */
@@ -119,8 +124,15 @@ export class Database {
   private readonly actor = os.userInfo().username;
   /** Whether the FTS5 talent-pool index is usable; false → search degrades to LIKE. */
   private ftsReady = false;
+  /**
+   * Folder holding app-created CV copies (downloaded from email sources). CVs whose
+   * path is inside it are the app's own copies, so purging a candidate deletes them;
+   * local-folder CVs (outside it) are the recruiter's files and are left untouched.
+   */
+  private readonly managedCvDir: string | null;
 
-  constructor(dbPath: string) {
+  constructor(dbPath: string, managedCvDir?: string) {
+    this.managedCvDir = managedCvDir ? path.resolve(managedCvDir) : null;
     try {
       fs.mkdirSync(path.dirname(dbPath), { recursive: true });
       this.db = new BetterSqlite3(dbPath);
@@ -143,6 +155,20 @@ export class Database {
   }
 
   close() { this.db.close(); }
+
+  // ---- email-source import dedup ----
+
+  /** Message-ids already imported from an email source, so re-runs never duplicate them. */
+  importedMessageIds(): Set<string> {
+    const rows = this.db.prepare('SELECT message_id FROM imported_emails').all() as { message_id: string }[];
+    return new Set(rows.map(r => r.message_id));
+  }
+
+  recordImportedMessages(messageIds: string[], mailbox: string): void {
+    const now = new Date().toISOString();
+    const ins = this.db.prepare('INSERT OR IGNORE INTO imported_emails (message_id, mailbox, imported_at) VALUES (?, ?, ?)');
+    this.db.transaction(() => { for (const id of messageIds) ins.run(id, mailbox, now); })();
+  }
 
   // ---- talent-pool full-text search (FTS5) ----
 
@@ -355,12 +381,15 @@ export class Database {
 
   /** GDPR erasure: removes the candidate and their applications/email log entries. */
   purgeCandidate(candidateId: number): void {
+    const managedFiles: string[] = [];
     const tx = this.db.transaction(() => {
-      const apps = this.db.prepare('SELECT id FROM applications WHERE candidate_id = ?').all(candidateId) as { id: number }[];
+      const apps = this.db.prepare('SELECT id, cv_path FROM applications WHERE candidate_id = ?')
+        .all(candidateId) as { id: number; cv_path: string }[];
       for (const a of apps) {
         this.db.prepare('DELETE FROM email_log WHERE application_id = ?').run(a.id);
         // GDPR: the erased candidate's CV text must not linger in the search index.
         if (this.ftsReady) { try { this.db.prepare('DELETE FROM app_fts WHERE rowid = ?').run(a.id); } catch { /* best-effort */ } }
+        if (this.isManagedCv(a.cv_path)) managedFiles.push(a.cv_path);
       }
       this.db.prepare('DELETE FROM applications WHERE candidate_id = ?').run(candidateId);
       this.db.prepare('DELETE FROM candidates WHERE id = ?').run(candidateId);
@@ -370,6 +399,15 @@ export class Database {
     try { tx(); } catch (err) {
       throw asAppError(err, 'AVZ-DB-603', `purgeCandidate(${candidateId})`);
     }
+    // Delete the app's own CV copies (email downloads) after the DB commit — best-effort.
+    for (const f of managedFiles) { try { fs.rmSync(f, { force: true }); } catch { /* ignore */ } }
+  }
+
+  /** True if a CV path is an app-created copy under the managed download dir. */
+  private isManagedCv(cvPath: string): boolean {
+    if (!this.managedCvDir || !cvPath) return false;
+    const resolved = path.resolve(cvPath);
+    return resolved === this.managedCvDir || resolved.startsWith(this.managedCvDir + path.sep);
   }
 
   // ---- jobs & applications ----

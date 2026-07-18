@@ -5,9 +5,48 @@ import { AppError } from '../errors';
 import type { Database } from '../db/database';
 import type { ParseFailure, ScreeningInput, ScreeningProgress, ScreeningResult, Tier } from '../types';
 import { extractText, SUPPORTED_EXTENSIONS } from '../parsing/extract';
-import { extractContact } from '../parsing/contact';
+import { extractContact, type ContactHint } from '../parsing/contact';
 import { buildSynonymMap, matchKeywords } from './keywords';
+import { fetchImapCvs } from '../sources/imap';
 import { mapLimit } from '../util/concurrency';
+
+/** Extra options the host supplies to runScreening (e.g. where to store email attachments). */
+export interface ScreeningOptions {
+  /** Durable folder for CVs downloaded from an email source (they become each cv_path). */
+  emailDownloadDir?: string;
+}
+
+/**
+ * Turn the configured source into a concrete list of CV files. Local folders are
+ * scanned directly; an email source is fetched into a durable download folder,
+ * returning per-file From-header contact hints and the new message-ids to record.
+ */
+async function resolveSource(
+  input: ScreeningInput,
+  db: Database,
+  opts: ScreeningOptions | undefined,
+  onProgress?: (p: ScreeningProgress) => void,
+): Promise<{ files: string[]; hints: Map<string, ContactHint>; newMessageIds: string[]; mailbox: string }> {
+  if (input.emailImap) {
+    if (!opts?.emailDownloadDir) {
+      throw new AppError('AVZ-APP-901', 'email source', 'no download directory was provided for the email source');
+    }
+    onProgress?.({ phase: 'importing', done: 0, total: 0 });
+    const already = db.importedMessageIds();
+    const res = await fetchImapCvs(
+      input.emailImap,
+      input.emailDateFrom ?? '',
+      input.emailDateTo ?? '',
+      already,
+      opts.emailDownloadDir,
+      (done, total) => onProgress?.({ phase: 'importing', done, total }),
+    );
+    return { files: res.files, hints: res.hints, newMessageIds: res.newMessageIds, mailbox: input.emailImap.mailbox };
+  }
+
+  onProgress?.({ phase: 'scanning', done: 0, total: 0 });
+  return { files: scanSource(input.sourcePath), hints: new Map(), newMessageIds: [], mailbox: '' };
+}
 
 /** Recursively collect CV files under the source folder. */
 export function scanSource(sourcePath: string): string[] {
@@ -36,9 +75,9 @@ export async function runScreening(
   input: ScreeningInput,
   db: Database,
   onProgress?: (p: ScreeningProgress) => void,
+  opts?: ScreeningOptions,
 ): Promise<ScreeningResult> {
-  onProgress?.({ phase: 'scanning', done: 0, total: 0 });
-  const files = scanSource(input.sourcePath);
+  const { files, hints, newMessageIds, mailbox } = await resolveSource(input, db, opts, onProgress);
 
   const failures: ParseFailure[] = [];
   let done = 0;
@@ -60,7 +99,7 @@ export async function runScreening(
   await mapLimit(files, input.concurrency, async (file) => {
     try {
       const text = await extractText(file, input.ocr);
-      const contact = extractContact(text, file);
+      const contact = extractContact(text, file, hints.get(file));
       const matchedMandatory = matchKeywords(text, mandatory.map(k => k.keyword), synonymMap);
       const matchedOptional = matchKeywords(text, input.optionalKeywords, synonymMap);
 
@@ -87,8 +126,14 @@ export async function runScreening(
     }
   });
 
+  // Remember which emails we imported so an overlapping date range never re-imports them.
+  if (newMessageIds.length) db.recordImportedMessages(newMessageIds, mailbox);
+
+  const sourceDesc = input.emailImap
+    ? `mailbox ${input.emailImap.host}/${mailbox} (${input.emailDateFrom}..${input.emailDateTo})`
+    : input.sourcePath;
   db.audit('screening_run',
-    `job "${input.jobTitle}" (id ${jobId}): ${files.length} file(s) from ${input.sourcePath}, ${failures.length} unparseable`);
+    `job "${input.jobTitle}" (id ${jobId}): ${files.length} file(s) from ${sourceDesc}, ${failures.length} unparseable`);
 
   return {
     jobId,

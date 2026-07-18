@@ -8,9 +8,10 @@ export default function Running({ label }: { label: string }) {
   useEffect(() => avz.onProgress(setP), []);
 
   const pct = p && p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+  const heading = p?.phase === 'importing' ? 'Fetching applications from the mailbox' : label;
   return (
     <div className="panel">
-      <h2>{label}…</h2>
+      <h2>{heading}…</h2>
       <div className="progress-outer" style={{ marginTop: 12 }}>
         <div className="progress-inner" style={{ width: `${pct}%` }} />
       </div>

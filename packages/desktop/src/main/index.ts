@@ -39,6 +39,7 @@ function unseal(value: string): string {
 function sealProfile(p: SettingsProfile): SettingsProfile {
   return {
     ...p,
+    source: p.source.imap ? { ...p.source, imap: { ...p.source.imap, pass: seal(p.source.imap.pass) } } : p.source,
     smtp: { ...p.smtp, pass: seal(p.smtp.pass) },
     llm: { ...p.llm, apiKey: seal(p.llm.apiKey) },
   };
@@ -47,6 +48,7 @@ function sealProfile(p: SettingsProfile): SettingsProfile {
 function unsealProfile(p: SettingsProfile): SettingsProfile {
   return {
     ...p,
+    source: p.source.imap ? { ...p.source, imap: { ...p.source.imap, pass: unseal(p.source.imap.pass) } } : p.source,
     smtp: { ...p.smtp, pass: unseal(p.smtp.pass) },
     llm: { ...p.llm, apiKey: unseal(p.llm.apiKey) },
   };
@@ -82,7 +84,10 @@ function registerIpc(): void {
   handle('connections:test', (p: SettingsProfile) => testConnections(p));
   handle('llm:models', (llm: SettingsProfile['llm']) => listModels(llm));
 
-  handle('screening:run', (input: ScreeningInput) => runScreening(input, db, sendProgress));
+  handle('screening:run', (input: ScreeningInput) => runScreening(input, db, sendProgress, {
+    // Email attachments are downloaded here and become each application's cv_path.
+    emailDownloadDir: path.join(app.getPath('userData'), 'email-cvs', String(Date.now())),
+  }));
 
   handle('applications:setTier', (ids: number[], tier: Tier) => {
     for (const id of ids) db.setApplicationTier(id, tier);
@@ -226,7 +231,7 @@ if (!app.requestSingleInstanceLock()) {
     const userData = app.getPath('userData');
     logger = new Logger(path.join(userData, 'logs', 'avanzare.log'));
     profiles = new ProfileStore(path.join(userData, 'profiles'));
-    db = new Database(path.join(userData, 'avanzare.sqlite'));
+    db = new Database(path.join(userData, 'avanzare.sqlite'), path.join(userData, 'email-cvs'));
     logger.info('app started', { userData });
 
     registerIpc();

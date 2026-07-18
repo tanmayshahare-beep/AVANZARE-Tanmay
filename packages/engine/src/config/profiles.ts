@@ -22,7 +22,11 @@ export function defaultProfile(name = ''): SettingsProfile {
   return {
     name,
     useAutomatically: false,
-    source: { kind: 'local', path: '' },
+    source: {
+      kind: 'local',
+      path: '',
+      imap: { host: '', port: 993, secure: true, user: '', pass: '', mailbox: 'INBOX' },
+    },
     ocr: { enabled: true, language: 'eng' },
     llm: { provider: 'ollama', baseUrl: 'http://localhost:11434', model: '', apiKey: '', timeoutMs: 120_000 },
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
@@ -38,6 +42,17 @@ export function validateProfile(p: SettingsProfile): void {
   if (!p.name.trim()) problems.push('profile name is empty');
   if (p.source.kind === 'local' && !p.source.path.trim()) problems.push('CV source folder is not set');
   if (p.source.kind === 'cloud') problems.push('cloud sources are not yet supported (AVZ-SRC-403)');
+  if (p.source.kind === 'email') {
+    const imap = p.source.imap;
+    if (!imap) problems.push('email source: IMAP settings are missing');
+    else {
+      if (!imap.host.trim()) problems.push('email source: IMAP host is not set');
+      if (!Number.isInteger(imap.port) || imap.port < 1 || imap.port > 65535) problems.push('email source: IMAP port is invalid');
+      if (!imap.user.trim()) problems.push('email source: IMAP username is not set');
+      if (!imap.pass.trim()) problems.push('email source: IMAP app password is not set');
+      if (!imap.mailbox.trim()) problems.push('email source: mailbox / label is not set');
+    }
+  }
   if (p.ocr.enabled && !p.ocr.language.trim()) problems.push('OCR language is not set');
   if (p.llm.provider === 'anthropic') {
     if (!p.llm.apiKey.trim()) problems.push('Anthropic API key is not set');
@@ -95,7 +110,11 @@ export class ProfileStore {
       return {
         ...base,
         ...parsed,
-        source: { ...base.source, ...parsed.source },
+        source: {
+          ...base.source,
+          ...parsed.source,
+          imap: { ...base.source.imap!, ...parsed.source?.imap },
+        },
         ocr: { ...base.ocr, ...parsed.ocr },
         llm: { ...base.llm, ...parsed.llm },
         smtp: { ...base.smtp, ...parsed.smtp },

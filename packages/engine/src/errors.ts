@@ -34,6 +34,10 @@ export const ERROR_CODES = {
   'AVZ-SRC-401': 'CV source path does not exist or is not accessible',
   'AVZ-SRC-402': 'No CV files (.pdf/.docx/.doc) found at the source',
   'AVZ-SRC-403': 'Cloud source provider is not configured or not yet supported',
+  'AVZ-SRC-411': 'Could not connect to the IMAP mail server',
+  'AVZ-SRC-412': 'IMAP authentication failed',
+  'AVZ-SRC-413': 'IMAP mailbox / label not found',
+  'AVZ-SRC-414': 'No new application emails found in the selected date range',
 
   // CFG 5xx — settings profiles
   'AVZ-CFG-501': 'Settings profile not found',

@@ -10,8 +10,13 @@ export interface JobDef {
   criteria: JobCriteria;
   /** How many candidates the recruiter intends to hire; null = no target. */
   targetAcceptances: number | null;
+  /** Email source only: inclusive date range of applications to import (yyyy-mm-dd). */
+  emailDateFrom?: string;
+  emailDateTo?: string;
   prompt: string;
 }
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 interface Props {
   profile: SettingsProfile;
@@ -31,6 +36,10 @@ export default function Job({ profile, initial, onStart }: Props) {
   const [optional, setOptional] = useState(initial?.optional.join(', ') ?? '');
   const [prompt, setPrompt] = useState(initial?.prompt ?? '');
   const [target, setTarget] = useState(initial?.targetAcceptances?.toString() ?? '');
+  const isEmail = profile.source.kind === 'email';
+  const [dateFrom, setDateFrom] = useState(
+    initial?.emailDateFrom ?? isoDay(new Date(Date.now() - 30 * 864e5)));
+  const [dateTo, setDateTo] = useState(initial?.emailDateTo ?? isoDay(new Date()));
   // keyword → importance (1-5); keywords not in the map default to 3
   const [importance, setImportance] = useState<Record<string, number>>(() =>
     Object.fromEntries((initial?.mandatory ?? []).map(k => [k.keyword, k.importance])));
@@ -45,7 +54,8 @@ export default function Job({ profile, initial, onStart }: Props) {
 
   const mandNames = parseKeywords(mandatory);
   const opt = parseKeywords(optional);
-  const ready = title.trim() && mandNames.length > 0 && prompt.trim().length > 0;
+  const emailRangeInvalid = isEmail && (!dateFrom || !dateTo || dateFrom > dateTo);
+  const ready = title.trim() && mandNames.length > 0 && prompt.trim().length > 0 && !emailRangeInvalid;
 
   const weighted: WeightedKeyword[] = mandNames.map(k => ({ keyword: k, importance: importance[k] ?? 3 }));
 
@@ -76,7 +86,26 @@ export default function Job({ profile, initial, onStart }: Props) {
   return (
     <div className="panel">
       <h2>New screening</h2>
-      <p className="hint">CVs will be read from <strong>{profile.source.path}</strong> (change under Technical Settings).</p>
+      {isEmail ? (
+        <>
+          <p className="hint">
+            Applications will be fetched from the mailbox <strong>{profile.source.imap?.host}/{profile.source.imap?.mailbox || 'INBOX'}</strong>{' '}
+            (change under Technical Settings). Choose the date range of applications to import:
+          </p>
+          <div className="grid3">
+            <label className="field"><span>From (received on/after)</span>
+              <input type="date" value={dateFrom} max={dateTo} onChange={e => setDateFrom(e.target.value)} />
+            </label>
+            <label className="field"><span>To (received on/before)</span>
+              <input type="date" value={dateTo} min={dateFrom} onChange={e => setDateTo(e.target.value)} />
+            </label>
+            <span />
+          </div>
+          {emailRangeInvalid && <p className="hint" style={{ color: 'var(--danger)' }}>Pick a valid date range (from ≤ to).</p>}
+        </>
+      ) : (
+        <p className="hint">CVs will be read from <strong>{profile.source.path}</strong> (change under Technical Settings).</p>
+      )}
 
       <div className="grid2">
         <label className="field"><span>Job title</span>
@@ -190,7 +219,11 @@ export default function Job({ profile, initial, onStart }: Props) {
 
       <div className="btn-row">
         <button className="btn primary" disabled={!ready || rangeInvalid}
-          onClick={() => onStart({ title: title.trim(), mandatory: weighted, optional: opt, keywordSynonyms, criteria, targetAcceptances, prompt: prompt.trim() })}>
+          onClick={() => onStart({
+            title: title.trim(), mandatory: weighted, optional: opt, keywordSynonyms, criteria, targetAcceptances,
+            ...(isEmail ? { emailDateFrom: dateFrom, emailDateTo: dateTo } : {}),
+            prompt: prompt.trim(),
+          })}>
           Start parsing
         </button>
         {!ready && <span className="muted">Job title, at least one mandatory keyword and a description are required.</span>}

@@ -5,7 +5,8 @@ export { Database, type CandidateRecord, type CandidateSearchHit } from './db/da
 export { extractText, SUPPORTED_EXTENSIONS } from './parsing/extract';
 export { extractContact, type ContactInfo } from './parsing/contact';
 export { matchKeywords, parseKeywordList, buildSynonymMap } from './pipeline/keywords';
-export { runScreening, scanSource } from './pipeline/screening';
+export { runScreening, scanSource, type ScreeningOptions } from './pipeline/screening';
+export { testImapConnection, fetchImapCvs, type ImapFetchResult } from './sources/imap';
 export { listModels, testLlmConnection, scoreCv, runLlmAnalysis } from './llm/router';
 export { DEFAULT_ANTHROPIC_MODEL } from './llm/anthropic';
 export { evaluateCriteria, criteriaPrompt } from './llm/criteria';
@@ -15,6 +16,7 @@ export { Logger, defaultLogger } from './util/logger';
 
 import { AppError } from './errors';
 import { scanSource } from './pipeline/screening';
+import { testImapConnection } from './sources/imap';
 import { testLlmConnection } from './llm/router';
 import { testSmtpConnection } from './mail/mailer';
 import type { ConnectionTestResult, SettingsProfile } from './types';
@@ -25,8 +27,14 @@ export async function testConnections(profile: SettingsProfile): Promise<Connect
 
   try {
     if (profile.source.kind === 'cloud') throw new AppError('AVZ-SRC-403', profile.source.provider ?? 'cloud');
-    const files = scanSource(profile.source.path);
-    results.push({ target: 'source', ok: true, message: `${files.length} CV file(s) found` });
+    if (profile.source.kind === 'email') {
+      if (!profile.source.imap) throw new AppError('AVZ-SRC-411', 'email', 'IMAP settings are not configured');
+      await testImapConnection(profile.source.imap);
+      results.push({ target: 'source', ok: true, message: `Mailbox ${profile.source.imap.host}/${profile.source.imap.mailbox || 'INBOX'} reachable` });
+    } else {
+      const files = scanSource(profile.source.path);
+      results.push({ target: 'source', ok: true, message: `${files.length} CV file(s) found` });
+    }
   } catch (err) {
     const e = err instanceof AppError ? err : new AppError('AVZ-SRC-401', profile.source.path, String(err));
     results.push({ target: 'source', ok: false, message: e.message, errorCode: e.code });

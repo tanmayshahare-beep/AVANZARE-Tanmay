@@ -31,7 +31,14 @@ The **desktop** package has three layers:
 
 ## Screening pipeline
 
-1. **Scan** the source folder recursively for `.pdf/.docx/.doc`.
+1. **Resolve the source** into a list of CV files. A **local folder** is scanned
+   recursively for `.pdf/.docx/.doc`. An **email inbox** (`sources/imap.ts`, via
+   `imapflow` + `mailparser`) is searched by IMAP date range in the chosen mailbox/label;
+   each message's first supported attachment is downloaded to a durable app folder
+   (`userData/email-cvs/<run>/`, since those files become each application's `cv_path`),
+   its `From` header is captured as a high-confidence contact hint, and its message-id is
+   recorded so overlapping ranges never re-import (`imported_emails` table). CVs downloaded
+   this way are app-created copies, so purging a candidate deletes the files too.
 2. **Extract text** — PDF via `pdfjs-dist` (line breaks reconstructed from `hasEOL`),
    DOCX via `mammoth`, legacy DOC via `word-extractor`. A PDF with no text layer
    (scanned image) falls back to **OCR** when enabled: each page is rasterized with
@@ -40,7 +47,9 @@ The **desktop** package has three layers:
    for them. With OCR off, text-less PDFs are still rejected with `AVZ-PARSE-103`.
 3. **Extract contact info** heuristically (first email-like token; phone-like digit
    runs; name = first plausible short line near the top, falling back to the file
-   name) and **upsert into `candidates`** keyed by email.
+   name) and **upsert into `candidates`** keyed by email. For email-sourced CVs the
+   sender's address/name from the `From` header override the heuristics, so the
+   applicant's email is essentially always known.
 4. **Keyword match** — case-insensitive with word boundaries applied only next to
    alphanumeric keyword edges, so `java` ≠ `javascript` but `c++`/`.NET` work.
 5. **Bucket** into tiers: `rejected` (missing a mandatory keyword), `mandatory`
@@ -80,6 +89,8 @@ All state lives in Electron's per-user data dir:
 - `profiles/*.profile.json` — connection/runtime settings. `smtp.pass` is encrypted
   with Electron `safeStorage` before hitting disk.
 - `logs/avanzare.log` — JSON-lines log.
+- `email-cvs/<run>/` — CVs downloaded from an email source (app-created copies;
+  removed when the candidate is purged).
 
 Privacy notes: applicant contact data is retained across runs by design (talent
 pool). The Candidates tab provides per-candidate **purge** (candidate + applications
@@ -99,6 +110,7 @@ collect per-item errors and continue, so one bad CV never aborts a run.
 
 - OCR language data is fetched by `tesseract.js` on first use; a fully offline
   install still needs the traineddata/core bundled locally (packaging follow-up).
-- Cloud CV sources (Drive/OneDrive/S3) are stubbed behind `AVZ-SRC-403`.
+- Cloud CV sources (Drive/OneDrive/S3) are stubbed behind `AVZ-SRC-403`; an IMAP
+  **email inbox** is supported as a network source in the meantime.
 - Candidates without an email cannot be deduplicated across runs.
 - Headless CLI/service mode is designed for (engine is UI-free) but not yet shipped.

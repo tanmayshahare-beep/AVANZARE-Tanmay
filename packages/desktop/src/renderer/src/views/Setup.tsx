@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ConnectionTestResult, SettingsProfile } from '@avanzare/engine';
+import type { ConnectionTestResult, ImapSettings, SettingsProfile } from '@avanzare/engine';
 import { avz, call } from '../api';
 
 interface Props {
@@ -13,7 +13,11 @@ function emptyProfile(): SettingsProfile {
   return {
     name: '',
     useAutomatically: false,
-    source: { kind: 'local', path: '' },
+    source: {
+      kind: 'local',
+      path: '',
+      imap: { host: '', port: 993, secure: true, user: '', pass: '', mailbox: 'INBOX' },
+    },
     ocr: { enabled: true, language: 'eng' },
     llm: { provider: 'ollama', baseUrl: 'http://localhost:11434', model: '', apiKey: '', timeoutMs: 120000 },
     smtp: { host: '', port: 587, secure: false, user: '', pass: '', fromAddress: '', fromName: 'Recruiting Team' },
@@ -53,6 +57,10 @@ export default function Setup({ firstRun, current, onUse, notify }: Props) {
     const folder = await call(avz.pickFolder(), notify);
     if (folder) set({ source: { ...p.source, path: folder } });
   };
+
+  const DEFAULT_IMAP: ImapSettings = { host: '', port: 993, secure: true, user: '', pass: '', mailbox: 'INBOX' };
+  const setImap = (patch: Partial<ImapSettings>) =>
+    set({ source: { ...p.source, imap: { ...(p.source.imap ?? DEFAULT_IMAP), ...patch } } });
 
   const loadModels = async () => {
     setBusy(true);
@@ -113,21 +121,67 @@ export default function Setup({ firstRun, current, onUse, notify }: Props) {
 
         <h3>CV source</h3>
         <div className="grid3">
-          <label className="field"><span>Local folder with CVs (.pdf / .docx / .doc)</span>
-            <input type="text" value={p.source.path} placeholder="C:\HR\resumes"
-              onChange={e => set({ source: { ...p.source, path: e.target.value } })} />
-          </label>
-          <label className="field"><span>&nbsp;</span>
-            <button className="btn" onClick={pickFolder}>Browse…</button>
-          </label>
           <label className="field"><span>Source type</span>
             <select value={p.source.kind}
-              onChange={e => set({ source: { ...p.source, kind: e.target.value as 'local' | 'cloud' } })}>
+              onChange={e => set({ source: { ...p.source, kind: e.target.value as 'local' | 'cloud' | 'email' } })}>
               <option value="local">Local folder</option>
+              <option value="email">Email inbox (IMAP)</option>
               <option value="cloud" disabled>Cloud (coming soon)</option>
             </select>
           </label>
+          <span /><span />
         </div>
+
+        {p.source.kind === 'local' && (
+          <div className="grid3">
+            <label className="field"><span>Local folder with CVs (.pdf / .docx / .doc)</span>
+              <input type="text" value={p.source.path} placeholder="C:\HR\resumes"
+                onChange={e => set({ source: { ...p.source, path: e.target.value } })} />
+            </label>
+            <label className="field"><span>&nbsp;</span>
+              <button className="btn" onClick={pickFolder}>Browse…</button>
+            </label>
+            <span />
+          </div>
+        )}
+
+        {p.source.kind === 'email' && (
+          <>
+            <div className="grid3">
+              <label className="field"><span>IMAP host</span>
+                <input type="text" value={p.source.imap?.host ?? ''} placeholder="imap.gmail.com"
+                  onChange={e => setImap({ host: e.target.value })} />
+              </label>
+              <label className="field"><span>Port</span>
+                <input type="number" value={p.source.imap?.port ?? 993}
+                  onChange={e => setImap({ port: Number(e.target.value) })} />
+              </label>
+              <label className="field" style={{ justifyContent: 'end' }}><span>&nbsp;</span>
+                <span className="check"><input type="checkbox" checked={p.source.imap?.secure ?? true}
+                  onChange={e => setImap({ secure: e.target.checked })} /> SSL/TLS (port 993)</span>
+              </label>
+              <label className="field"><span>Username (email address)</span>
+                <input type="text" value={p.source.imap?.user ?? ''} placeholder="hiring@company.com"
+                  onChange={e => setImap({ user: e.target.value })} />
+              </label>
+              <label className="field"><span>App password</span>
+                <input type="password" value={p.source.imap?.pass ?? ''} placeholder="16-char app password"
+                  onChange={e => setImap({ pass: e.target.value })} />
+              </label>
+              <label className="field"><span>Mailbox / label</span>
+                <input type="text" value={p.source.imap?.mailbox ?? ''} placeholder="INBOX or Applications"
+                  onChange={e => setImap({ mailbox: e.target.value })} />
+              </label>
+            </div>
+            <p className="hint" style={{ marginTop: 0 }}>
+              Point this at a <strong>dedicated hiring inbox</strong> — or, on a shared address, a
+              <strong> dedicated label/folder</strong>. Use an <strong>app password</strong> (Gmail requires 2FA + an
+              app password, and IMAP enabled). One CV attachment per applicant is assumed. The applicant's email is
+              read from the message, and the <strong>date range</strong> of applications to import is chosen per
+              screening on the job screen. The app password is stored encrypted on this machine.
+            </p>
+          </>
+        )}
         <div className="grid3" style={{ marginTop: 8 }}>
           <label className="field" style={{ justifyContent: 'end' }}>
             <span>&nbsp;</span>

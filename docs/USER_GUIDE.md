@@ -11,8 +11,16 @@ is emailed without an explicit confirmation.
 On first launch — or whenever no profile is marked "use automatically" — the
 **Technical Setup** screen appears before anything else. It collects:
 
-- **CV source** — the local folder containing the resumes. Subfolders are included.
-  (Cloud sources are planned; the selector is present but disabled.)
+- **CV source** — where the resumes come from:
+  - **Local folder** — the folder containing the resumes (subfolders included).
+  - **Email inbox (IMAP)** — pull applications straight from a mailbox. Point it at a
+    **dedicated hiring inbox** (or, on a shared address, a **dedicated label/folder**),
+    and enter the IMAP host/port, your address, an **app password** (Gmail/Outlook need
+    2FA + an app password, and IMAP enabled), and the mailbox/label. Each applicant is
+    assumed to send **one CV attachment**; their email address is taken from the message
+    itself. The **date range** of applications to import is chosen per screening on the
+    job screen. The app password is stored encrypted on this machine.
+  - **Cloud** — planned; the selector is present but disabled.
 - **OCR** — when enabled (the default), scanned / image-only PDFs that have no text
   layer are read with optical character recognition instead of being rejected
   (`AVZ-PARSE-103`). OCR only runs on the CVs that actually need it, but it is
@@ -91,9 +99,14 @@ The SMTP password is encrypted at rest using Windows credential protection
   must-have experience, seniority, team context. The app nudges you if the
   description is very short, because ranking quality depends directly on it.
 
-**Start parsing** reads every CV, extracts its text and the applicant's name, email
-and phone, and stores the contact info in the persistent candidate database
-(deduplicated by email across runs).
+When the CV source is an **email inbox**, the job screen shows a **date range** at the
+top — only applications received within it are imported, and messages already imported
+on a previous run are skipped, so overlapping ranges never produce duplicates.
+
+**Start parsing** reads every CV (for an email source, it first downloads the
+attachments from the mailbox), extracts its text and the applicant's name, email and
+phone, and stores the contact info in the persistent candidate database (deduplicated
+by email across runs).
 
 ## 3. Rejection review
 

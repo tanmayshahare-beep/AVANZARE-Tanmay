@@ -75,6 +75,11 @@ export default function App() {
       criteria: def.criteria,
       targetAcceptances: def.targetAcceptances,
       sourcePath: profile.source.path,
+      ...(profile.source.kind === 'email' ? {
+        emailImap: profile.source.imap,
+        emailDateFrom: def.emailDateFrom,
+        emailDateTo: def.emailDateTo,
+      } : {}),
       ocr: profile.ocr,
       concurrency: profile.concurrency,
     }), (m) => { notify(m); setWizard('job'); });

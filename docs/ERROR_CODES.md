@@ -48,7 +48,11 @@ must be kept in sync with it.
 |---|---|---|---|
 | AVZ-SRC-401 | Source path does not exist / not accessible | Folder moved, network drive offline | Fix the path in Technical Settings |
 | AVZ-SRC-402 | No CV files found at the source | Empty folder or wrong folder | Point to the folder that contains the resumes |
-| AVZ-SRC-403 | Cloud source not configured / not yet supported | Cloud selected | Use a local folder for now |
+| AVZ-SRC-403 | Cloud source not configured / not yet supported | Cloud selected | Use a local folder or email inbox for now |
+| AVZ-SRC-411 | Could not connect to the IMAP mail server | Wrong host/port, TLS mismatch, firewall, IMAP disabled | Verify host/port (Gmail: `imap.gmail.com:993`); enable IMAP in the mailbox settings |
+| AVZ-SRC-412 | IMAP authentication failed | Wrong username/app-password; app password required | Use an app password (Gmail/Outlook need 2FA + app password), not the account password |
+| AVZ-SRC-413 | IMAP mailbox / label not found | Mailbox name typo; label doesn't exist | Check the mailbox/label name (case-sensitive; e.g. `INBOX`, `Applications`) |
+| AVZ-SRC-414 | No new application emails in the date range | Range empty, or all already imported, or none had a CV attachment | Widen the date range, or confirm applicants sent a PDF/Word attachment |
 
 ## CFG 5xx — settings profiles
 

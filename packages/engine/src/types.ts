@@ -22,11 +22,26 @@ export interface LlmSettings {
   timeoutMs: number;
 }
 
+/** IMAP mailbox to pull application emails from (a dedicated hiring inbox or label). */
+export interface ImapSettings {
+  host: string;
+  port: number;
+  /** true = implicit TLS (usually port 993). */
+  secure: boolean;
+  user: string;
+  /** App password (encrypted at rest by the desktop app, like the SMTP password). */
+  pass: string;
+  /** Mailbox / Gmail label to read from, e.g. "INBOX" or "Applications". */
+  mailbox: string;
+}
+
 export interface SourceSettings {
-  kind: 'local' | 'cloud';
-  /** Local: absolute folder path. Cloud: reserved for connector config. */
+  kind: 'local' | 'cloud' | 'email';
+  /** Local: absolute folder path. Cloud: reserved for connector config. Email: unused. */
   path: string;
   provider?: 'gdrive' | 'onedrive' | 's3';
+  /** IMAP connection when kind === 'email'. */
+  imap?: ImapSettings;
 }
 
 /** OCR for scanned (image-only) PDFs. Slow, so it only runs on PDFs with no text layer. */
@@ -230,6 +245,13 @@ export interface ScreeningInput {
   /** How many candidates the recruiter intends to hire; null = no target. */
   targetAcceptances: number | null;
   sourcePath: string;
+  /**
+   * Email source (kind === 'email'): the mailbox to pull from and the date range
+   * of applications to import. Dates are ISO yyyy-mm-dd; the range is inclusive.
+   */
+  emailImap?: ImapSettings;
+  emailDateFrom?: string;
+  emailDateTo?: string;
   /** OCR config for scanned PDFs; omit to disable. */
   ocr?: OcrSettings;
   concurrency: number;
@@ -246,7 +268,7 @@ export interface ScreeningResult {
 }
 
 export interface ScreeningProgress {
-  phase: 'scanning' | 'parsing' | 'analyzing';
+  phase: 'importing' | 'scanning' | 'parsing' | 'analyzing';
   done: number;
   total: number;
   currentFile?: string;
